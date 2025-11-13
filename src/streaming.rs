@@ -109,7 +109,7 @@ impl<R: Read + Seek> StreamingGDSIIReader<R> {
         let mut buf = [0u8; 4];
         reader.read_exact(&mut buf)?;
 
-        let record_len = u16::from_be_bytes([buf[0], buf[1]]);
+        let _record_len = u16::from_be_bytes([buf[0], buf[1]]);
         let record_type = buf[2];
 
         if record_type != 0x00 {
