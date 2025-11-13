@@ -94,26 +94,14 @@ jobs:
 
       - name: Prepare docs for GitHub Pages
         run: |
-          cat > target/doc/index.html <<'EOF'
-          <!DOCTYPE html>
-          <html lang="en">
-          <head>
-              <meta charset="utf-8">
-              <meta http-equiv="refresh" content="0; url=gds_oas/index.html">
-              <title>Redirecting to gds_oas documentation</title>
-          </head>
-          <body>
-              <p>Redirecting to <a href="gds_oas/index.html">gds_oas documentation</a>...</p>
-          </body>
-          </html>
-          EOF
-          touch target/doc/.nojekyll
+          # Create .nojekyll file to disable Jekyll processing
+          touch target/doc/gds_oas/.nojekyll
 
       - name: Upload docs artifact
         uses: actions/upload-artifact@v4
         with:
           name: documentation
-          path: target/doc
+          path: target/doc/gds_oas
 
   build-binaries:
     name: Build Release Binaries
