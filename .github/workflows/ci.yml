@@ -174,6 +174,14 @@ jobs:
           mv target/pages/laykit/* target/pages/
           # Remove now-empty crate directory
           rmdir target/pages/laykit
+          # Fix relative paths in HTML files (change ../ to ./ since we flattened)
+          find target/pages -name "*.html" -type f -exec sed -i 's|"\.\./static\.files/|"static.files/|g' {} +
+          find target/pages -name "*.html" -type f -exec sed -i "s|'\.\./static\.files/|'static.files/|g" {} +
+          find target/pages -name "*.html" -type f -exec sed -i 's|"\.\./crates\.js|"crates.js|g' {} +
+          find target/pages -name "*.html" -type f -exec sed -i 's|"\.\./search-index\.js|"search-index.js|g' {} +
+          find target/pages -name "*.html" -type f -exec sed -i 's|"\.\./src-files\.js|"src-files.js|g' {} +
+          find target/pages -name "*.html" -type f -exec sed -i 's|href="\.\./|href="|g' {} +
+          find target/pages -name "*.html" -type f -exec sed -i 's|src="\.\./|src="|g' {} +
           # Create .nojekyll file to disable Jekyll processing
           touch target/pages/.nojekyll
 
