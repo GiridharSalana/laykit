@@ -1,6 +1,6 @@
 [package]
 name = "laykit"
-version = "0.1.2"
+version = "0.2.7"
 edition = "2021"
 authors = ["Giridhar Salana <giridharsalana@gmail.com>"]
 description = "laykit - Production-ready Rust library for GDSII and OASIS IC layout file formats"

@@ -12,11 +12,60 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
+  sync-version:
+    name: Sync Version with Git Tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Sync version from git tag
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_VERSION#v}"
+          CURRENT_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
+          
+          echo "Tag: $TAG_VERSION"
+          echo "Extracted version: $VERSION"
+          echo "Current Cargo.toml version: $CURRENT_VERSION"
+          
+          if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
+            echo "✓ Updated Cargo.toml: $CURRENT_VERSION → $VERSION"
+            
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git add Cargo.toml
+            git commit -m "chore: sync version to $VERSION from git tag"
+            git push origin HEAD:main
+            
+            # Verify
+            UPDATED_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
+            if [ "$UPDATED_VERSION" != "$VERSION" ]; then
+              echo "✗ Version mismatch after update: $UPDATED_VERSION != $VERSION"
+              exit 1
+            fi
+            echo "✓ Version verified: $UPDATED_VERSION"
+          else
+            echo "✓ Version already matches: $VERSION"
+          fi
+
+      - name: Skip sync (not a tag)
+        if: "!startsWith(github.ref, 'refs/tags/')"
+        run: echo "Not a tag push, skipping version sync"
+
   test:
+    needs: sync-version
     name: Test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -98,6 +147,8 @@ jobs:
             artifact_name: laykit-macos-arm64
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
