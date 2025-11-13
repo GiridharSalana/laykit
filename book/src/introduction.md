@@ -13,10 +13,14 @@
 - **Zero Dependencies** - Pure Rust implementation using only `std`
 - **Memory Safe** - Leverages Rust's ownership system for safety
 - **High Performance** - Efficient binary parsing and serialization
-- **Production Ready** - 21 comprehensive tests, 100% passing
+- **Streaming Parser** - Process large files without loading entire file into memory
+- **Production Ready** - 53 comprehensive tests, 100% passing
 
 ### 📦 Easy to Use
 - Simple, intuitive API
+- CLI tool for quick operations
+- Property utilities and builders
+- AREF expansion tools
 - Comprehensive documentation
 - Multiple examples included
 - Type-safe element handling
@@ -72,12 +76,16 @@ Jump right in with the [Getting Started](./getting-started.md) guide, or check o
 
 ## Project Status
 
-LayKit is **production-ready** with:
+LayKit v0.1.1 is **production-ready** with:
 
 - ✅ Full GDSII read/write implementation
 - ✅ Full OASIS read/write implementation
 - ✅ Bidirectional format conversion
-- ✅ 21 comprehensive tests (100% passing)
+- ✅ Streaming parser for large files
+- ✅ Command-line tool (convert, info, validate)
+- ✅ Property management utilities
+- ✅ AREF expansion utilities
+- ✅ 53 comprehensive tests (100% passing)
 - ✅ Zero compiler warnings
 - ✅ Complete documentation
 - ✅ Multiple working examples
