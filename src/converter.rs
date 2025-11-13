@@ -273,7 +273,7 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
 }
 
 // Helper functions
-fn is_rectangle(points: &[(i32, i32)]) -> bool {
+pub fn is_rectangle(points: &[(i32, i32)]) -> bool {
     // A rectangle has 4 or 5 points (5 if closed) with right angles
     if points.len() != 4 && points.len() != 5 {
         return false;
@@ -317,40 +317,3 @@ fn calculate_rectangle_bounds(points: &[(i32, i32)]) -> (i32, i32, i32, i32) {
     (x_min, y_min, x_max - x_min, y_max - y_min)
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_rectangle_detection() {
-        let rect_points = vec![(0, 0), (100, 0), (100, 50), (0, 50), (0, 0)];
-        assert!(is_rectangle(&rect_points));
-
-        let not_rect = vec![(0, 0), (100, 0), (100, 50)];
-        assert!(!is_rectangle(&not_rect));
-    }
-
-    #[test]
-    fn test_gdsii_to_oasis_conversion() {
-        let mut gds = GDSIIFile::new("TEST".to_string());
-        let mut structure = GDSStructure {
-            name: "TOP".to_string(),
-            creation_time: GDSTime::now(),
-            modification_time: GDSTime::now(),
-            elements: Vec::new(),
-        };
-
-        structure.elements.push(GDSElement::Boundary(Boundary {
-            layer: 1,
-            datatype: 0,
-            xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
-            properties: Vec::new(),
-        }));
-
-        gds.structures.push(structure);
-
-        let oasis = gdsii_to_oasis(&gds).unwrap();
-        assert_eq!(oasis.cells.len(), 1);
-        assert_eq!(oasis.cells[0].name, "TOP");
-    }
-}
