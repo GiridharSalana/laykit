@@ -16,6 +16,8 @@ git-repository-url = "https://github.com/giridharsalana/laykit"
 edit-url-template = "https://github.com/giridharsalana/laykit/edit/main/{path}"
 site-url = "https://giridharsalana.github.io/laykit/"
 cname = "giridharsalana.github.io"
+additional-css = ["theme/custom.css"]
+additional-js = ["theme/custom.js"]
 
 [output.html.fold]
 enable = true

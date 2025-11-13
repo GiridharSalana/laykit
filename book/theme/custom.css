@@ -1,0 +1,28 @@
+/* Make the book title clickable */
+.menu-title {
+    cursor: pointer;
+    transition: opacity 0.2s;
+}
+
+.menu-title:hover {
+    opacity: 0.8;
+}
+
+/* Sidebar collapsed by default */
+.sidebar {
+    transform: translateX(-300px);
+}
+
+.sidebar-visible .sidebar {
+    transform: translateX(0);
+}
+
+/* Additional styling for better appearance */
+.menu-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.menu-title a:hover {
+    text-decoration: underline;
+}
