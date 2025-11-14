@@ -174,10 +174,9 @@ def test_gds_to_oasis_conversion():
         try:
             lib_back = gdstk.read_gds(gds_back)
             
-            # Library name may change during conversion (acceptable)
-            # Just check that we have a valid library
-            if not lib_back.name:
-                print(f"FAIL\n  Library name is empty")
+            # Library name should be derived from filename "roundtrip.gds" -> "ROUNDTRIP"
+            if lib_back.name != "ROUNDTRIP":
+                print(f"FAIL\n  Library name incorrect: expected 'ROUNDTRIP', got '{lib_back.name}'")
                 return False
             
             if "COMPLEX" not in [c.name for c in lib_back.cells]:

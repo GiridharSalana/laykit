@@ -159,7 +159,7 @@ fn convert_gds_to_oas(input: &str, output: &str) -> Result<(), Box<dyn std::erro
 
 fn convert_oas_to_gds(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
     let oasis = OASISFile::read_from_file(input)?;
-    let gds = converter::oasis_to_gdsii(&oasis)?;
+    let gds = converter::oasis_to_gdsii_with_name(&oasis, Some(output))?;
     gds.write_to_file(output)?;
     Ok(())
 }

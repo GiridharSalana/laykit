@@ -42,8 +42,35 @@ pub fn gdsii_to_oasis(gds: &GDSIIFile) -> Result<OASISFile, Box<dyn std::error::
 }
 
 /// Convert OASIS to GDSII
+///
+/// If `output_path` is provided, the library name will be derived from the filename.
+/// Otherwise, defaults to "CONVERTED".
 pub fn oasis_to_gdsii(oasis: &OASISFile) -> Result<GDSIIFile, Box<dyn std::error::Error>> {
-    let mut gds = GDSIIFile::new("CONVERTED".to_string());
+    oasis_to_gdsii_with_name(oasis, None)
+}
+
+/// Convert OASIS to GDSII with a specific output filename
+///
+/// The library name will be derived from the filename stem.
+/// Example: "output.gds" → library name "OUTPUT"
+pub fn oasis_to_gdsii_with_name(
+    oasis: &OASISFile,
+    output_path: Option<&str>,
+) -> Result<GDSIIFile, Box<dyn std::error::Error>> {
+    use std::path::Path;
+    
+    // Derive library name from output filename, or use default
+    let lib_name = if let Some(path) = output_path {
+        Path::new(path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_uppercase())
+            .unwrap_or_else(|| "CONVERTED".to_string())
+    } else {
+        "CONVERTED".to_string()
+    };
+    
+    let mut gds = GDSIIFile::new(lib_name);
 
     // Convert units
     gds.units = (1e-6, oasis.unit); // 1 micron user unit, OASIS unit as database unit

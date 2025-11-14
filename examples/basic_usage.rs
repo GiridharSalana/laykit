@@ -1,6 +1,6 @@
 // Example demonstrating basic usage of the laykit library
 
-use laykit::converter::{gdsii_to_oasis, oasis_to_gdsii};
+use laykit::converter::{gdsii_to_oasis, oasis_to_gdsii_with_name};
 use laykit::gdsii::{Boundary, GDSElement, GDSIIFile, GDSStructure, GDSTime, GPath};
 use laykit::oasis::{OASISCell, OASISElement, OASISFile, Polygon, Rectangle};
 
@@ -31,7 +31,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("\n4. Converting OASIS to GDSII...");
     let oasis = OASISFile::read_from_file("example.oas")?;
     println!("   Read OASIS: {} cells", oasis.cells.len());
-    let converted_gds = oasis_to_gdsii(&oasis)?;
+    let converted_gds = oasis_to_gdsii_with_name(&oasis, Some("converted_from_oas.gds"))?;
     converted_gds.write_to_file("converted_from_oas.gds")?;
     println!("   ✓ Converted to converted_from_oas.gds");
 
