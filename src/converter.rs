@@ -58,7 +58,7 @@ pub fn oasis_to_gdsii_with_name(
     output_path: Option<&str>,
 ) -> Result<GDSIIFile, Box<dyn std::error::Error>> {
     use std::path::Path;
-    
+
     // Derive library name from output filename, or use default
     let lib_name = if let Some(path) = output_path {
         Path::new(path)
@@ -69,7 +69,7 @@ pub fn oasis_to_gdsii_with_name(
     } else {
         "CONVERTED".to_string()
     };
-    
+
     let mut gds = GDSIIFile::new(lib_name);
 
     // Convert units
