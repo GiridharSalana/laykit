@@ -1,6 +1,7 @@
 // LayKit CLI Tool
 // Command-line interface for GDSII and OASIS file operations
 
+use laykit::format_detection::{detect_format_from_file, FileFormat};
 use laykit::{converter, GDSIIFile, OASISFile};
 use std::env;
 use std::fs;
@@ -31,7 +32,7 @@ fn main() {
 }
 
 fn print_usage() {
-    println!("LayKit v0.1.1 - IC Layout File Format Tool");
+    println!("LayKit v{} - IC Layout File Format Tool", env!("CARGO_PKG_VERSION"));
     println!();
     println!("USAGE:");
     println!("    laykit <COMMAND> [OPTIONS]");
@@ -64,34 +65,70 @@ fn handle_convert(args: &[String]) {
         process::exit(1);
     }
 
-    let input_ext = Path::new(input_path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    // Detect input format by reading magic bytes
+    let input_format = match detect_format_from_file(input_path) {
+        Ok(format) => format,
+        Err(e) => {
+            eprintln!("Error: Cannot detect input file format: {}", e);
+            process::exit(1);
+        }
+    };
 
-    let output_ext = Path::new(output_path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    // Detect output format by reading magic bytes (if file exists) or use extension as hint
+    let output_format = if Path::new(output_path).exists() {
+        match detect_format_from_file(output_path) {
+            Ok(format) => format,
+            Err(_) => {
+                // If we can't read the file, infer from extension
+                let ext = Path::new(output_path)
+                    .extension()
+                    .and_then(|s| s.to_str())
+                    .unwrap_or("")
+                    .to_lowercase();
+                match ext.as_str() {
+                    "gds" => FileFormat::GDSII,
+                    "oas" => FileFormat::OASIS,
+                    _ => FileFormat::Unknown,
+                }
+            }
+        }
+    } else {
+        // Output file doesn't exist, infer from extension
+        let ext = Path::new(output_path)
+            .extension()
+            .and_then(|s| s.to_str())
+            .unwrap_or("")
+            .to_lowercase();
+        match ext.as_str() {
+            "gds" => FileFormat::GDSII,
+            "oas" => FileFormat::OASIS,
+            _ => FileFormat::Unknown,
+        }
+    };
 
     println!("Converting {} -> {}", input_path, output_path);
+    println!("  Input format: {:?}", input_format);
+    println!("  Output format: {:?}", output_format);
 
-    let result = match (input_ext.as_str(), output_ext.as_str()) {
-        ("gds", "oas") => convert_gds_to_oas(input_path, output_path),
-        ("oas", "gds") => convert_oas_to_gds(input_path, output_path),
-        ("gds", "gds") => {
+    let result = match (input_format, output_format) {
+        (FileFormat::GDSII, FileFormat::OASIS) => convert_gds_to_oas(input_path, output_path),
+        (FileFormat::OASIS, FileFormat::GDSII) => convert_oas_to_gds(input_path, output_path),
+        (FileFormat::GDSII, FileFormat::GDSII) => {
             eprintln!("Warning: Both files are GDSII format. Copying...");
             copy_file(input_path, output_path)
         }
-        ("oas", "oas") => {
+        (FileFormat::OASIS, FileFormat::OASIS) => {
             eprintln!("Warning: Both files are OASIS format. Copying...");
             copy_file(input_path, output_path)
         }
-        _ => {
-            eprintln!("Error: Unsupported file format combination");
-            eprintln!("Supported: .gds <-> .oas");
+        (FileFormat::Unknown, _) => {
+            eprintln!("Error: Cannot determine input file format");
+            eprintln!("       File does not appear to be valid GDSII or OASIS");
+            process::exit(1);
+        }
+        (_, FileFormat::Unknown) => {
+            eprintln!("Error: Cannot determine output file format");
+            eprintln!("       Please use .gds or .oas extension for output file");
             process::exit(1);
         }
     };
@@ -143,17 +180,21 @@ fn handle_info(args: &[String]) {
         process::exit(1);
     }
 
-    let ext = Path::new(file_path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    // Detect file format by reading magic bytes
+    let format = match detect_format_from_file(file_path) {
+        Ok(format) => format,
+        Err(e) => {
+            eprintln!("Error: Cannot detect file format: {}", e);
+            process::exit(1);
+        }
+    };
 
-    let result = match ext.as_str() {
-        "gds" => show_gds_info(file_path),
-        "oas" => show_oas_info(file_path),
-        _ => {
-            eprintln!("Error: Unsupported file format. Expected .gds or .oas");
+    let result = match format {
+        FileFormat::GDSII => show_gds_info(file_path),
+        FileFormat::OASIS => show_oas_info(file_path),
+        FileFormat::Unknown => {
+            eprintln!("Error: Unknown file format");
+            eprintln!("       File does not appear to be valid GDSII or OASIS");
             process::exit(1);
         }
     };
@@ -316,17 +357,21 @@ fn handle_validate(args: &[String]) {
         process::exit(1);
     }
 
-    let ext = Path::new(file_path)
-        .extension()
-        .and_then(|s| s.to_str())
-        .unwrap_or("")
-        .to_lowercase();
+    // Detect file format by reading magic bytes
+    let format = match detect_format_from_file(file_path) {
+        Ok(format) => format,
+        Err(e) => {
+            eprintln!("Error: Cannot detect file format: {}", e);
+            process::exit(1);
+        }
+    };
 
-    let result = match ext.as_str() {
-        "gds" => validate_gds(file_path),
-        "oas" => validate_oas(file_path),
-        _ => {
-            eprintln!("Error: Unsupported file format. Expected .gds or .oas");
+    let result = match format {
+        FileFormat::GDSII => validate_gds(file_path),
+        FileFormat::OASIS => validate_oas(file_path),
+        FileFormat::Unknown => {
+            eprintln!("Error: Unknown file format");
+            eprintln!("       File does not appear to be valid GDSII or OASIS");
             process::exit(1);
         }
     };

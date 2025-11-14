@@ -33,6 +33,8 @@ pub fn expand_array_ref(aref: &ArrayRef) -> Vec<GDSElement> {
                 sname: aref.sname.clone(),
                 xy: (x, y),
                 strans: aref.strans.clone(),
+                elflags: aref.elflags,
+                plex: aref.plex,
                 properties: aref.properties.clone(),
             }));
         }
@@ -91,6 +93,8 @@ mod tests {
             rows: 2,
             xy: vec![(0, 0), (300, 0), (0, 200)],
             strans: None,
+            elflags: None,
+            plex: None,
             properties: Vec::new(),
         };
 
@@ -124,6 +128,8 @@ mod tests {
             rows: 1,
             xy: vec![(100, 200), (100, 200), (100, 200)],
             strans: None,
+            elflags: None,
+            plex: None,
             properties: Vec::new(),
         };
 
@@ -150,6 +156,8 @@ mod tests {
             rows: 1,
             xy: vec![(0, 0), (100, 0), (0, 0)],
             strans: None,
+            elflags: None,
+            plex: None,
             properties: props.clone(),
         };
 
@@ -174,12 +182,16 @@ mod tests {
                 rows: 2,
                 xy: vec![(0, 0), (200, 0), (0, 200)],
                 strans: None,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }),
             GDSElement::StructRef(StructRef {
                 sname: "CELL2".to_string(),
                 xy: (1000, 1000),
                 strans: None,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }),
             GDSElement::ArrayRef(ArrayRef {
@@ -188,6 +200,8 @@ mod tests {
                 rows: 1,
                 xy: vec![(0, 0), (300, 0), (0, 0)],
                 strans: None,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }),
         ];
@@ -208,12 +222,16 @@ mod tests {
                 rows: 3,
                 xy: vec![(0, 0), (400, 0), (0, 300)],
                 strans: None,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }),
             GDSElement::StructRef(StructRef {
                 sname: "B".to_string(),
                 xy: (0, 0),
                 strans: None,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }),
         ];
@@ -232,6 +250,8 @@ mod tests {
             rows: 2,
             xy: vec![(0, 0), (100, 0)], // Only 2 points instead of 3!
             strans: None,
+            elflags: None,
+            plex: None,
             properties: Vec::new(),
         };
 

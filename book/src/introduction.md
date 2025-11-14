@@ -76,7 +76,7 @@ Jump right in with the [Getting Started](./getting-started.md) guide, or check o
 
 ## Project Status
 
-LayKit v0.1.1 is **production-ready** with:
+LayKit is **production-ready** with:
 
 - ✅ Full GDSII read/write implementation
 - ✅ Full OASIS read/write implementation

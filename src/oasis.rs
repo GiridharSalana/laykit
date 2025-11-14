@@ -295,26 +295,32 @@ impl OASISFile {
                     let _ = Self::read_unsigned(&mut cursor);
                     break;
                 }
-                3 => {
-                    // CELLNAME
+                3 | 4 => {
+                    // CELLNAME (explicit and implicit)
                     let name = Self::read_string(&mut cursor)?;
                     let ref_num = Self::read_unsigned(&mut cursor)? as u32;
                     oasis.names.cell_names.insert(ref_num, name);
                 }
-                5 => {
-                    // TEXTSTRING
+                5 | 6 => {
+                    // TEXTSTRING (explicit and implicit)
                     let string = Self::read_string(&mut cursor)?;
                     let ref_num = Self::read_unsigned(&mut cursor)? as u32;
                     oasis.names.text_strings.insert(ref_num, string);
                 }
-                7 => {
-                    // PROPNAME
+                7 | 8 => {
+                    // PROPNAME (explicit and implicit)
                     let name = Self::read_string(&mut cursor)?;
                     let ref_num = Self::read_unsigned(&mut cursor)? as u32;
                     oasis.names.prop_names.insert(ref_num, name);
                 }
-                11 => {
-                    // LAYERNAME
+                9 | 10 => {
+                    // PROPSTRING (explicit and implicit)
+                    let string = Self::read_string(&mut cursor)?;
+                    let ref_num = Self::read_unsigned(&mut cursor)? as u32;
+                    oasis.names.prop_strings.insert(ref_num, string);
+                }
+                11 | 12 => {
+                    // LAYERNAME (explicit and implicit)
                     let name = Self::read_string(&mut cursor)?;
                     let layer_interval = Self::read_layer_interval(&mut cursor)?;
                     let _datatype_interval = Self::read_layer_interval(&mut cursor)?;
@@ -450,6 +456,18 @@ impl OASISFile {
                     // XYAbsolute or XYRelative - just continue
                     continue;
                 }
+                16 => {
+                    // PLACEMENT
+                    if let Ok(elem) = Self::read_placement(cursor, names) {
+                        cell.elements.push(OASISElement::Placement(elem));
+                    }
+                }
+                18 => {
+                    // TEXT
+                    if let Ok(elem) = Self::read_text(cursor, names) {
+                        cell.elements.push(OASISElement::Text(elem));
+                    }
+                }
                 19 => {
                     // RECTANGLE
                     if let Ok(elem) = Self::read_rectangle(cursor) {
@@ -467,6 +485,45 @@ impl OASISFile {
                     if let Ok(elem) = Self::read_path(cursor) {
                         cell.elements.push(OASISElement::Path(elem));
                     }
+                }
+                22 => {
+                    // TRAPEZOID
+                    if let Ok(elem) = Self::read_trapezoid(cursor) {
+                        cell.elements.push(OASISElement::Trapezoid(elem));
+                    }
+                }
+                23 => {
+                    // CTRAPEZOID
+                    if let Ok(elem) = Self::read_ctrapezoid(cursor) {
+                        cell.elements.push(OASISElement::CTrapezoid(elem));
+                    }
+                }
+                24 => {
+                    // CIRCLE
+                    if let Ok(elem) = Self::read_circle(cursor) {
+                        cell.elements.push(OASISElement::Circle(elem));
+                    }
+                }
+                28 | 29 => {
+                    // PROPERTY records - skip for now (basic coverage)
+                    let _ = Self::read_unsigned(cursor); // property name reference
+                    let values_count = Self::read_unsigned(cursor).unwrap_or(0);
+                    for _ in 0..values_count {
+                        let _ = Self::read_unsigned(cursor); // skip property values
+                    }
+                }
+                30 | 31 | 34 => {
+                    // XNAME, XELEMENT, XGEOMETRY - vendor extensions, skip
+                    let _ = Self::read_unsigned(cursor);
+                    let _ = Self::read_string(cursor);
+                }
+                32 | 33 => {
+                    // CBLOCK - compression block
+                    let _comp_type = Self::read_unsigned(cursor)?;
+                    let _uncomp_byte_count = Self::read_unsigned(cursor)?;
+                    let comp_byte_count = Self::read_unsigned(cursor)?;
+                    // Skip compressed data for now
+                    let _ = Self::read_bytes(cursor, comp_byte_count as usize);
                 }
                 _ => {
                     // Unknown record, try to skip it safely
@@ -571,6 +628,113 @@ impl OASISFile {
         })
     }
 
+    fn read_trapezoid(cursor: &mut Cursor<Vec<u8>>) -> Result<Trapezoid, Box<dyn std::error::Error>> {
+        let layer = Self::read_unsigned(cursor)? as u32;
+        let datatype = Self::read_unsigned(cursor)? as u32;
+        let orientation = Self::read_u8(cursor)? != 0;
+        let width = Self::read_unsigned(cursor)?;
+        let height = Self::read_unsigned(cursor)?;
+        let delta_a = Self::read_signed(cursor)?;
+        let delta_b = Self::read_signed(cursor)?;
+        let x = Self::read_signed(cursor)?;
+        let y = Self::read_signed(cursor)?;
+
+        Ok(Trapezoid {
+            layer,
+            datatype,
+            orientation,
+            width,
+            height,
+            delta_a,
+            delta_b,
+            x,
+            y,
+            repetition: None,
+            properties: Vec::new(),
+        })
+    }
+
+    fn read_ctrapezoid(cursor: &mut Cursor<Vec<u8>>) -> Result<CTrapezoid, Box<dyn std::error::Error>> {
+        let layer = Self::read_unsigned(cursor)? as u32;
+        let datatype = Self::read_unsigned(cursor)? as u32;
+        let trap_type = Self::read_u8(cursor)?;
+        let width = Self::read_unsigned(cursor)?;
+        let height = Self::read_unsigned(cursor)?;
+        let x = Self::read_signed(cursor)?;
+        let y = Self::read_signed(cursor)?;
+
+        Ok(CTrapezoid {
+            layer,
+            datatype,
+            trap_type,
+            width,
+            height,
+            x,
+            y,
+            repetition: None,
+            properties: Vec::new(),
+        })
+    }
+
+    fn read_circle(cursor: &mut Cursor<Vec<u8>>) -> Result<Circle, Box<dyn std::error::Error>> {
+        let layer = Self::read_unsigned(cursor)? as u32;
+        let datatype = Self::read_unsigned(cursor)? as u32;
+        let radius = Self::read_unsigned(cursor)?;
+        let x = Self::read_signed(cursor)?;
+        let y = Self::read_signed(cursor)?;
+
+        Ok(Circle {
+            layer,
+            datatype,
+            radius,
+            x,
+            y,
+            repetition: None,
+            properties: Vec::new(),
+        })
+    }
+
+    fn read_text(
+        cursor: &mut Cursor<Vec<u8>>,
+        _names: &NameTable,
+    ) -> Result<OText, Box<dyn std::error::Error>> {
+        let layer = Self::read_unsigned(cursor)? as u32;
+        let texttype = Self::read_unsigned(cursor)? as u32;
+        let string = Self::read_string(cursor)?;
+        let x = Self::read_signed(cursor)?;
+        let y = Self::read_signed(cursor)?;
+
+        Ok(OText {
+            layer,
+            texttype,
+            string,
+            x,
+            y,
+            repetition: None,
+            properties: Vec::new(),
+        })
+    }
+
+    fn read_placement(
+        cursor: &mut Cursor<Vec<u8>>,
+        _names: &NameTable,
+    ) -> Result<Placement, Box<dyn std::error::Error>> {
+        let cell_name = Self::read_string(cursor)?;
+        let x = Self::read_signed(cursor)?;
+        let y = Self::read_signed(cursor)?;
+
+        Ok(Placement {
+            cell_name,
+            x,
+            y,
+            magnification: None,
+            angle: None,
+            mirror: false,
+            repetition: None,
+            properties: Vec::new(),
+        })
+    }
+
     // Helper I/O functions
     fn read_u8<R: Read>(cursor: &mut R) -> Result<u8, Box<dyn std::error::Error>> {
         let mut buf = [0u8; 1];
@@ -661,7 +825,9 @@ impl OASISFile {
     fn read_string<R: Read>(cursor: &mut R) -> Result<String, Box<dyn std::error::Error>> {
         let len = Self::read_unsigned(cursor)? as usize;
         let bytes = Self::read_bytes(cursor, len)?;
-        Ok(String::from_utf8(bytes)?)
+        // Use from_utf8_lossy to handle non-UTF8 strings gracefully
+        // OASIS spec uses ASCII, but some tools may write non-UTF8 data
+        Ok(String::from_utf8_lossy(&bytes).into_owned())
     }
 
     fn write_string<W: Write>(writer: &mut W, s: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -706,7 +872,7 @@ impl OASISFile {
                 cursor.read_exact(&mut bytes)?;
                 Ok(f64::from_le_bytes(bytes))
             }
-            _ => Err(format!("Invalid real type: {}", type_byte).into()),
+            _ => Err(format!("Invalid real type: {} (may indicate corrupted file or misaligned read)", type_byte).into()),
         }
     }
 

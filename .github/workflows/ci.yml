@@ -2,79 +2,27 @@ name: CI
 
 on:
   push:
-    branches: [main]
-    tags:
-      - "v*.*.*"
+    branches: [ main, master, develop ]
   pull_request:
-    branches: [main]
+    branches: [ main, master, develop ]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  sync-version:
-    name: Sync Version with Git Tag
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Sync version from git tag
-        if: startsWith(github.ref, 'refs/tags/')
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG_VERSION#v}"
-          CURRENT_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
-          
-          echo "Tag: $TAG_VERSION"
-          echo "Extracted version: $VERSION"
-          echo "Current Cargo.toml version: $CURRENT_VERSION"
-          
-          if [ "$CURRENT_VERSION" != "$VERSION" ]; then
-            sed -i "s/^version = \".*\"/version = \"$VERSION\"/" Cargo.toml
-            echo "✓ Updated Cargo.toml: $CURRENT_VERSION → $VERSION"
-            
-            # Regenerate Cargo.lock to reflect version change
-            cargo generate-lockfile || echo "Note: Cargo.lock generation completed"
-            
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git add Cargo.toml Cargo.lock
-            git commit -m "chore: sync version to $VERSION from git tag" || echo "No changes to commit"
-            git push origin HEAD:main
-            
-            # Verify
-            UPDATED_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
-            if [ "$UPDATED_VERSION" != "$VERSION" ]; then
-              echo "✗ Version mismatch after update: $UPDATED_VERSION != $VERSION"
-              exit 1
-            fi
-            echo "✓ Version verified: $UPDATED_VERSION"
-          else
-            echo "✓ Version already matches: $VERSION"
-          fi
-
-      - name: Skip sync (not a tag)
-        if: "!startsWith(github.ref, 'refs/tags/')"
-        run: echo "Not a tag push, skipping version sync"
-
   test:
-    needs: sync-version
-    name: Test
+    name: Test Suite
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: stable
+          override: true
 
       - name: Cache cargo registry
         uses: actions/cache@v3
@@ -86,326 +34,114 @@ jobs:
         uses: actions/cache@v3
         with:
           path: ~/.cargo/git
-          key: ${{ runner.os }}-cargo-git-${{ hashFiles('**/Cargo.lock') }}
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Cache cargo build
+      - name: Cache target directory
         uses: actions/cache@v3
         with:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
-      - name: Run tests
-        run: cargo test --verbose
+      - name: Run cargo tests
+        run: cargo test --all-features --verbose
 
-      - name: Run doc tests
-        run: cargo test --doc --verbose
+      - name: Build release binary
+        run: cargo build --release
 
-  clippy:
-    name: Clippy
-    needs: test
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install gdstk for validation
+        run: |
+          pip install gdstk
+
+      - name: Run gdstk cross-validation tests
+        run: |
+          chmod +x tests/gdstk_validation.py
+          chmod +x tests/run_all_tests.sh
+          cd tests && python3 gdstk_validation.py
+
+      - name: Upload test results
+        if: failure()
+        uses: actions/upload-artifact@v3
+        with:
+          name: test-failures
+          path: |
+            target/debug/
+            *.log
+
+  lint:
+    name: Linting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          components: clippy
+          profile: minimal
+          toolchain: stable
+          override: true
+          components: rustfmt, clippy
+
+      - name: Check formatting
+        run: cargo fmt -- --check
 
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-  fmt:
-    name: Format
-    needs: clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-
-      - name: Check formatting
-        run: cargo fmt --all -- --check
-
-  build-binaries:
-    name: Build Release Binaries
-    needs: fmt
-    if: startsWith(github.ref, 'refs/tags/')
+  build:
+    name: Build on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
     strategy:
-      fail-fast: true
       matrix:
-        include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact_name: laykit-linux-x64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact_name: laykit-windows-x64
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact_name: laykit-macos-x64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact_name: laykit-macos-arm64
+        os: [ubuntu-latest, windows-latest, macos-latest]
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          fetch-depth: 0
+          profile: minimal
+          toolchain: stable
+          override: true
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
+      - name: Build
+        run: cargo build --release --verbose
+
+      - name: Upload binary
+        uses: actions/upload-artifact@v3
         with:
-          targets: ${{ matrix.target }}
-
-      - name: Build release
-        run: cargo build --release --target ${{ matrix.target }} --verbose
-
-      - name: Run examples (verify build)
-        if: matrix.os != 'windows-latest'
-        run: |
-          cargo run --release --target ${{ matrix.target }} --example gdsii_only
-          cargo run --release --target ${{ matrix.target }} --example oasis_only
-          cargo run --release --target ${{ matrix.target }} --example basic_usage
-
-      - name: Prepare artifacts
-        shell: bash
-        run: |
-          mkdir -p artifacts
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            cp target/${{ matrix.target }}/release/examples/*.exe artifacts/ 2>/dev/null || true
-          else
-            cp target/${{ matrix.target }}/release/examples/gdsii_only artifacts/ 2>/dev/null || true
-            cp target/${{ matrix.target }}/release/examples/oasis_only artifacts/ 2>/dev/null || true
-            cp target/${{ matrix.target }}/release/examples/basic_usage artifacts/ 2>/dev/null || true
-          fi
-          cp README.md artifacts/
-          cp LICENSE artifacts/
-          cp CHANGELOG.md artifacts/
-
-      - name: Create archive
-        shell: bash
-        run: |
-          cd artifacts
-          if [ "${{ matrix.os }}" = "windows-latest" ]; then
-            7z a ../${{ matrix.artifact_name }}.zip *
-          else
-            tar czf ../${{ matrix.artifact_name }}.tar.gz *
-          fi
-          cd ..
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact_name }}
+          name: laykit-${{ matrix.os }}
           path: |
-            ${{ matrix.artifact_name }}.tar.gz
-            ${{ matrix.artifact_name }}.zip
+            target/release/laykit${{ matrix.os == 'windows-latest' && '.exe' || '' }}
 
-  docs:
-    name: Documentation
-    needs: build-binaries
-    if: startsWith(github.ref, 'refs/tags/')
+  coverage:
+    name: Code Coverage
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Install mdBook
-        run: |
-          mkdir -p ~/bin
-          curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.40/mdbook-v0.4.40-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C ~/bin
-          echo "$HOME/bin" >> $GITHUB_PATH
-
-      - name: Build mdBook documentation
-        run: |
-          mdbook build
-          ls -la book/build/
-
-      - name: Generate rustdoc (API reference)
-        run: cargo doc --no-deps --all-features
-
-      - name: Combine documentation
-        run: |
-          # Create staging directory
-          mkdir -p target/pages
-          
-          # Copy mdBook as main documentation
-          cp -r book/build/* target/pages/
-          
-          # Add rustdoc as /api subdirectory
-          mkdir -p target/pages/api
-          cp -r target/doc/* target/pages/api/
-          
-          # Create redirect from api/index.html to api/laykit/index.html
-          echo '<!DOCTYPE html>' > target/pages/api/index.html
-          echo '<html><head><meta charset="utf-8">' >> target/pages/api/index.html
-          echo '<title>LayKit API Documentation</title>' >> target/pages/api/index.html
-          echo '<meta http-equiv="refresh" content="0; url=laykit/index.html">' >> target/pages/api/index.html
-          echo '</head><body>' >> target/pages/api/index.html
-          echo '<p>Redirecting to <a href="laykit/index.html">API documentation</a>...</p>' >> target/pages/api/index.html
-          echo '</body></html>' >> target/pages/api/index.html
-          
-          # Create .nojekyll file to disable Jekyll processing
-          touch target/pages/.nojekyll
-          
-          echo "Documentation structure:"
-          ls -la target/pages/
-          echo "API subdirectory:"
-          ls -la target/pages/api/ | head -20
-
-      - name: Upload docs artifact
-        uses: actions/upload-artifact@v4
+      - name: Install Rust toolchain
+        uses: actions-rs/toolchain@v1
         with:
-          name: documentation
-          path: target/pages
+          profile: minimal
+          toolchain: stable
+          override: true
 
-  deploy-docs:
-    name: Deploy Documentation to GitHub Pages
-    needs: docs
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      pages: write
-      id-token: write
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Download docs artifact
-        uses: actions/download-artifact@v4
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Generate coverage
+        run: cargo tarpaulin --out Xml --output-dir coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
         with:
-          name: documentation
-          path: docs
-
-      - name: Setup Pages
-        uses: actions/configure-pages@v4
-
-      - name: Upload to GitHub Pages
-        uses: actions/upload-pages-artifact@v3
-        with:
-          path: docs
-
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v4
-
-  release:
-    name: Create GitHub Release
-    needs: deploy-docs
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Extract version from tag
-        id: get_version
-        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: release-artifacts
-
-      - name: Display structure of downloaded files
-        run: ls -R release-artifacts
-
-      - name: Generate release notes
-        id: release_notes
-        run: |
-          if [ -f "RELEASE_NOTES_${{ steps.get_version.outputs.VERSION }}.md" ]; then
-            echo "Using existing release notes file"
-            cat "RELEASE_NOTES_${{ steps.get_version.outputs.VERSION }}.md" > release_notes.md
-          else
-            echo "Generating release notes from CHANGELOG.md"
-            echo "# GDS_OAS ${{ steps.get_version.outputs.VERSION }}" > release_notes.md
-            echo "" >> release_notes.md
-            echo "Production-ready Rust library for GDSII and OASIS IC layout file formats." >> release_notes.md
-            echo "" >> release_notes.md
-            echo "## Downloads" >> release_notes.md
-            echo "" >> release_notes.md
-            echo "Pre-built binaries with examples are available for:" >> release_notes.md
-            echo "- Linux (x86_64)" >> release_notes.md
-            echo "- Windows (x86_64)" >> release_notes.md
-            echo "- macOS (x86_64 and ARM64)" >> release_notes.md
-            echo "" >> release_notes.md
-            if [ -f "CHANGELOG.md" ]; then
-              cat CHANGELOG.md >> release_notes.md
-            fi
-          fi
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          name: ${{ steps.get_version.outputs.VERSION }} - Production-Ready GDSII and OASIS Library
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-          files: |
-            release-artifacts/**/*.tar.gz
-            release-artifacts/**/*.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-  publish:
-    name: Publish to Crates.io
-    needs: release
-    if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          ref: main
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Verify version matches tag
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG_VERSION#v}"
-          CARGO_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
-          
-          if [ "$CARGO_VERSION" != "$VERSION" ]; then
-            echo "✗ Version mismatch: Cargo.toml=$CARGO_VERSION, Tag=$VERSION"
-            exit 1
-          fi
-          echo "✓ Version verified: $CARGO_VERSION"
-
-      - name: Regenerate Cargo.lock and commit if changed
-        run: |
-          cargo generate-lockfile
-          if ! git diff-index --quiet HEAD -- Cargo.lock; then
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git remote set-url origin https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}
-            git add Cargo.lock
-            git commit -m "chore: update Cargo.lock for publish"
-            git push origin HEAD:main
-          fi
-
-      - name: Verify working directory is clean
-        run: |
-          if ! git diff-index --quiet HEAD --; then
-            echo "✗ Working directory has uncommitted changes:"
-            git status --short
-            exit 1
-          fi
-          echo "✓ Working directory is clean"
-
-      - name: Publish to crates.io
-        run: cargo publish
-        env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          files: ./coverage/cobertura.xml
+          fail_ci_if_error: false

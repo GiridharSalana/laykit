@@ -15,11 +15,11 @@ Add to your `Cargo.toml`:
 laykit = { git = "https://github.com/giridharsalana/laykit", branch = "main" }
 ```
 
-Or pin to a specific tag:
+Or pin to a specific tag (see [GitHub releases](https://github.com/giridharsalana/laykit/tags) for available versions):
 
 ```toml
 [dependencies]
-laykit = { git = "https://github.com/giridharsalana/laykit", tag = "v0.2.2" }
+laykit = { git = "https://github.com/giridharsalana/laykit", tag = "vX.Y.Z" }
 ```
 
 ### Option 2: Local Path

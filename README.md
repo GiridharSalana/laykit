@@ -100,8 +100,11 @@ cd laykit
 # Build the library
 cargo build --release
 
-# Run tests (53 comprehensive tests)
+# Run tests (71+ comprehensive tests)
 cargo test
+
+# Run ALL tests including gdstk validation
+tests/run_all_tests.sh
 
 # Run examples
 cargo run --example gdsii_only
@@ -626,9 +629,14 @@ Tested on:
 
 ### Test Suite
 
-Run all tests:
+Run Rust tests only:
 ```bash
 cargo test
+```
+
+Run ALL tests (Rust + gdstk validation):
+```bash
+tests/run_all_tests.sh
 ```
 
 Run with output:
@@ -641,9 +649,16 @@ Run specific test:
 cargo test test_gdsii_round_trip
 ```
 
+Run gdstk validation only:
+```bash
+cd tests && python3 gdstk_validation.py
+```
+
 ### Test Coverage
 
-**53 Comprehensive Tests** (100% passing, 0 failures):
+**71+ Comprehensive Tests** (100% passing, 0 failures):
+
+#### Rust Tests (71 tests)
 
 #### Module Tests (12 tests)
 - ✅ Property enhancement tests (4 tests)
@@ -692,26 +707,35 @@ cargo test test_gdsii_round_trip
 - ✅ Mixed elements streaming
 - ✅ File-based streaming
 
+#### Cross-Validation Tests (6 tests)
+**LayKit ↔ gdstk compatibility validation:**
+- ✅ `test_read_gdstk_file` - Reading gdstk-created files
+- ✅ `test_write_for_gdstk` - Creating gdstk-compatible files
+- ✅ `test_gds_to_oasis_conversion` - Round-trip GDS→OAS→GDS
+- ✅ `test_properties` - Property preservation
+- ✅ `test_array_references` - AREF handling
+- ✅ `test_large_file` - Large file handling (1000+ elements)
+
+> **Note:** gdstk validation requires `pip install gdstk`. Tests are automatically run in GitHub Actions CI.
+
 ### Continuous Integration
 
-Example GitHub Actions workflow:
-```yaml
-name: CI
+LayKit uses GitHub Actions for automated testing across multiple platforms:
 
-on: [push, pull_request]
+**Test Matrix:**
+- ✅ Ubuntu Latest (primary)
+- ✅ Windows Latest
+- ✅ macOS Latest
 
-jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - run: cargo test --all-features
-      - run: cargo clippy -- -D warnings
-      - run: cargo fmt -- --check
-```
+**CI Pipeline:**
+1. Rust unit tests (`cargo test`)
+2. Build verification (`cargo build --release`)
+3. Code formatting check (`cargo fmt -- --check`)
+4. Clippy linting (`cargo clippy`)
+5. **gdstk cross-validation** (Ubuntu only)
+6. Code coverage report (Codecov)
+
+See `.github/workflows/ci.yml` for complete workflow configuration.
 
 ---
 
@@ -794,12 +818,13 @@ laykit
 
 ## 🗺️ Roadmap
 
-### v0.1.1 (Current) ✅
+### Current Release ✅
 - ✅ Complete GDSII read/write
 - ✅ Complete OASIS read/write
 - ✅ Bidirectional format conversion
 - ✅ **Streaming Parser** - For large files without loading entire file into memory
 - ✅ **CLI Tool** - Command-line utility with convert, info, and validate commands
+  - Format detection using magic bytes (not file extensions)
   ```bash
   laykit convert input.gds output.oas
   laykit info design.gds
@@ -811,7 +836,7 @@ laykit
 - ✅ Zero compiler warnings
 - ✅ Production-ready code quality
 
-### v0.1.2 (Planned)
+### Next Release (Planned)
 - [ ] **Performance Optimizations**
   - SIMD acceleration for coordinate processing
   - Parallel parsing with Rayon
@@ -821,7 +846,7 @@ laykit
   - Hierarchy validation
   - Layer map verification
 
-### v0.2.0 (Future)
+### Future Releases
 - [ ] **Advanced Features**
   - Incremental file updates
   - Partial file reading (region of interest)

@@ -26,7 +26,15 @@ laykit convert input.gds output.oas
 laykit convert input.oas output.gds
 ```
 
-The format is automatically detected from file extensions.
+**Format Detection:** The input file format is automatically detected by reading the magic bytes at the beginning of the file, not by file extension. This means you can convert files regardless of their extension:
+
+```bash
+# Works even if the file has the wrong extension
+laykit convert myfile.dat output.oas  # Detects actual format from file content
+```
+
+- **GDSII magic bytes:** `00 06 00 02` (HEADER record)
+- **OASIS magic bytes:** `%SEMI-OASIS\r\n`
 
 ### Info
 
@@ -35,6 +43,8 @@ Display detailed information about a layout file:
 ```bash
 laykit info design.gds
 ```
+
+**Note:** Like the convert command, the info command detects the file format using magic bytes, so it works regardless of the file extension.
 
 Output includes:
 - File size and format
@@ -83,6 +93,8 @@ Validate file structure and check for common issues:
 ```bash
 laykit validate layout.gds
 ```
+
+**Note:** The validate command also uses magic byte detection to identify the file format automatically.
 
 The validator checks for:
 - Empty library/structure names

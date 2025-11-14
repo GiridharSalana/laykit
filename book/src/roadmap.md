@@ -4,7 +4,7 @@ Future plans and development priorities for LayKit.
 
 ## Version History
 
-### v0.2.x (Current) ✅
+### Current Release ✅
 
 **Status:** Production-ready with comprehensive documentation
 
@@ -12,29 +12,24 @@ Future plans and development priorities for LayKit.
 - ✅ Complete GDSII read/write support
 - ✅ Complete OASIS read/write support
 - ✅ Bidirectional format conversion
-- ✅ 21 comprehensive tests (100% passing)
+- ✅ Format detection via magic bytes
+- ✅ 66 comprehensive tests (100% passing)
 - ✅ Zero dependencies
 - ✅ Full mdBook documentation
-- ✅ GitHub Actions CI/CD
-- ✅ Automated releases
+- ✅ CLI tool with convert, info, and validate commands
+- ✅ Streaming parser for large files
+- ✅ Property management utilities
+- ✅ AREF expansion tools
 
 **Recent improvements:**
-- mdBook documentation system
-- Enhanced API documentation
-- Performance benchmarks documented
-- Contributing guidelines
+- Magic byte-based format detection
+- Public format detection API
+- Enhanced CLI with format auto-detection
+- Comprehensive unit tests for format detection
 
-### v0.1.x
+## Short-term Goals (Next Release)
 
-**Initial release** with core functionality:
-- Basic GDSII support
-- Basic OASIS support
-- Simple conversions
-- Initial test suite
-
-## Short-term Goals (v0.3.0)
-
-**Target:** Q2 2025
+**Planned Features:**
 
 ### 1. Command-Line Interface
 
@@ -115,7 +110,7 @@ let expanded = gds.expand_arrays()?;
 // All ArrayRef elements become individual StructRef elements
 ```
 
-## Medium-term Goals (v0.4.0)
+## Medium-term Goals
 
 **Target:** Q4 2025
 
@@ -200,7 +195,7 @@ Basic geometric operations:
 let result = gds_bool_operation(&gds1, &gds2, BoolOp::Union)?;
 ```
 
-## Long-term Goals (v1.0.0+)
+## Long-term Goals
 
 **Target:** 2026+
 
@@ -311,7 +306,7 @@ Track feature requests from users:
 - Write: ~25-30 MB/s
 - Memory: ~30× file size
 
-### Target Performance (v0.4.0)
+### Target Performance
 - Read: ~50 MB/s (2× faster)
 - Write: ~60 MB/s (2× faster)
 - Memory: ~15× file size (50% reduction)

@@ -96,6 +96,7 @@ impl<R: Read + Seek> StreamingGDSIIReader<R> {
             name,
             creation_time,
             modification_time,
+            strclass: None,
             elements,
         }))
     }
@@ -305,6 +306,7 @@ mod tests {
                 name: format!("CELL_{}", i),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
+                strclass: None,
                 elements: Vec::new(),
             };
 
@@ -319,6 +321,8 @@ mod tests {
                         (j * 100, 100),
                         (j * 100, 0),
                     ],
+                    elflags: None,
+                    plex: None,
                     properties: Vec::new(),
                 }));
             }
@@ -355,6 +359,7 @@ mod tests {
                 name: name.to_string(),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
+            strclass: None,
                 elements: Vec::new(),
             };
             gds.structures.push(structure);

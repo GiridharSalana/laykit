@@ -14,6 +14,10 @@ pub struct GDSIIFile {
     pub access_time: GDSTime,
     pub library_name: String,
     pub units: (f64, f64), // (user_units, database_units in meters)
+    pub reflibs: Vec<String>, // Referenced library names (record 0x1F)
+    pub fonts: Vec<String>,   // Font table (record 0x29)
+    pub generations: Option<i16>, // Backup generations (record 0x3C)
+    pub attrtable: Option<String>, // Attribute table reference (record 0x3D)
     pub structures: Vec<GDSStructure>,
 }
 
@@ -32,6 +36,7 @@ pub struct GDSStructure {
     pub name: String,
     pub creation_time: GDSTime,
     pub modification_time: GDSTime,
+    pub strclass: Option<i16>, // Structure class (record 0x34)
     pub elements: Vec<GDSElement>,
 }
 
@@ -51,6 +56,8 @@ pub struct Boundary {
     pub layer: i16,
     pub datatype: i16,
     pub xy: Vec<(i32, i32)>,
+    pub elflags: Option<i16>, // Element flags (record 0x26)
+    pub plex: Option<i32>,    // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -60,7 +67,11 @@ pub struct GPath {
     pub datatype: i16,
     pub pathtype: i16,
     pub width: Option<i32>,
+    pub bgnextn: Option<i32>, // Path extension at beginning (record 0x30)
+    pub endextn: Option<i32>, // Path extension at end (record 0x31)
     pub xy: Vec<(i32, i32)>,
+    pub elflags: Option<i16>,  // Element flags (record 0x26)
+    pub plex: Option<i32>,     // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -69,6 +80,8 @@ pub struct StructRef {
     pub sname: String,
     pub xy: (i32, i32),
     pub strans: Option<STrans>,
+    pub elflags: Option<i16>, // Element flags (record 0x26)
+    pub plex: Option<i32>,    // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -79,6 +92,8 @@ pub struct ArrayRef {
     pub rows: u16,
     pub xy: Vec<(i32, i32)>, // 3 points: origin, column_spacing, row_spacing
     pub strans: Option<STrans>,
+    pub elflags: Option<i16>, // Element flags (record 0x26)
+    pub plex: Option<i32>,    // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -91,6 +106,8 @@ pub struct GText {
     pub presentation: Option<i16>,
     pub strans: Option<STrans>,
     pub width: Option<i32>,
+    pub elflags: Option<i16>, // Element flags (record 0x26)
+    pub plex: Option<i32>,    // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -99,6 +116,8 @@ pub struct Node {
     pub layer: i16,
     pub nodetype: i16,
     pub xy: Vec<(i32, i32)>,
+    pub elflags: Option<i16>, // Element flags (record 0x26)
+    pub plex: Option<i32>,    // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -107,6 +126,8 @@ pub struct GDSBox {
     pub layer: i16,
     pub boxtype: i16,
     pub xy: Vec<(i32, i32)>,
+    pub elflags: Option<i16>, // Element flags (record 0x26)
+    pub plex: Option<i32>,    // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -174,6 +195,10 @@ impl GDSIIFile {
             access_time: now,
             library_name,
             units: (1e-6, 1e-9), // 1 micron user unit, 1nm database unit
+            reflibs: Vec::new(),
+            fonts: Vec::new(),
+            generations: None,
+            attrtable: None,
             structures: Vec::new(),
         }
     }
@@ -204,12 +229,17 @@ impl GDSIIFile {
         let mut strans: Option<STrans> = None;
         let mut width: Option<i32> = None;
         let mut pathtype: Option<i16> = None;
+        let mut bgnextn: Option<i32> = None; // Path extension at beginning
+        let mut endextn: Option<i32> = None; // Path extension at end
+        let mut elflags: Option<i16> = None; // Element flags
+        let mut plex: Option<i32> = None;    // Plex identifier
         let mut texttype: Option<i16> = None;
         let mut text_string: Option<String> = None;
         let mut presentation: Option<i16> = None;
         let mut colrow: Option<(u16, u16)> = None;
         let mut nodetype: Option<i16> = None;
         let mut boxtype: Option<i16> = None;
+        let mut current_prop_attr: Option<i16> = None;
 
         while cursor < buffer.len() {
             let (record_type, _data_type, data) = Self::read_record(&buffer, &mut cursor)?;
@@ -233,6 +263,30 @@ impl GDSIIFile {
                     // UNITS
                     gds.units = Self::parse_units(&data)?;
                 }
+                0x1F => {
+                    // REFLIBS - Referenced libraries
+                    let reflib = Self::parse_string(&data)?;
+                    gds.reflibs.push(reflib);
+                }
+                0x29 => {
+                    // FONTS - Font table
+                    for i in (0..data.len()).step_by(44) {
+                        if i + 44 <= data.len() {
+                            let font = Self::parse_string(&data[i..i + 44])?;
+                            if !font.is_empty() {
+                                gds.fonts.push(font);
+                            }
+                        }
+                    }
+                }
+                0x3C => {
+                    // GENERATIONS - Number of backup generations
+                    gds.generations = Some(Self::parse_i16(&data)?);
+                }
+                0x3D => {
+                    // ATTRTABLE - Attribute table reference
+                    gds.attrtable = Some(Self::parse_string(&data)?);
+                }
                 0x04 => {
                     // ENDLIB
                     break;
@@ -244,6 +298,7 @@ impl GDSIIFile {
                         name: String::new(),
                         creation_time: times.0,
                         modification_time: times.1,
+                        strclass: None,
                         elements: Vec::new(),
                     });
                 }
@@ -251,6 +306,12 @@ impl GDSIIFile {
                     // STRNAME
                     if let Some(ref mut structure) = current_structure {
                         structure.name = Self::parse_string(&data)?;
+                    }
+                }
+                0x34 => {
+                    // STRCLASS - Structure class
+                    if let Some(ref mut structure) = current_structure {
+                        structure.strclass = Some(Self::parse_i16(&data)?);
                     }
                 }
                 0x07 => {
@@ -265,6 +326,8 @@ impl GDSIIFile {
                     datatype = None;
                     xy.clear();
                     properties.clear();
+                    elflags = None;
+                    plex = None;
                 }
                 0x09 => {
                     // PATH
@@ -274,6 +337,10 @@ impl GDSIIFile {
                     properties.clear();
                     width = None;
                     pathtype = None;
+                    bgnextn = None;
+                    endextn = None;
+                    elflags = None;
+                    plex = None;
                 }
                 0x0A => {
                     // SREF
@@ -281,6 +348,8 @@ impl GDSIIFile {
                     xy.clear();
                     strans = None;
                     properties.clear();
+                    elflags = None;
+                    plex = None;
                 }
                 0x0B => {
                     // AREF
@@ -289,6 +358,8 @@ impl GDSIIFile {
                     strans = None;
                     colrow = None;
                     properties.clear();
+                    elflags = None;
+                    plex = None;
                 }
                 0x0C => {
                     // TEXT
@@ -300,6 +371,8 @@ impl GDSIIFile {
                     strans = None;
                     width = None;
                     properties.clear();
+                    elflags = None;
+                    plex = None;
                 }
                 0x0D => {
                     // LAYER
@@ -330,6 +403,8 @@ impl GDSIIFile {
                                 layer: l,
                                 datatype: d,
                                 xy: xy.clone(),
+                                elflags,
+                                plex,
                                 properties: properties.clone(),
                             }))
                         } else {
@@ -340,7 +415,11 @@ impl GDSIIFile {
                                     datatype: d,
                                     pathtype: pt,
                                     width,
+                                    bgnextn,
+                                    endextn,
                                     xy: xy.clone(),
+                                    elflags,
+                                    plex,
                                     properties: properties.clone(),
                                 })
                             })
@@ -353,6 +432,8 @@ impl GDSIIFile {
                             rows: cr.1,
                             xy: xy.clone(),
                             strans: strans.clone(),
+                            elflags,
+                            plex,
                             properties: properties.clone(),
                         }))
                     } else if let Some(sn) = sname.as_ref() {
@@ -362,6 +443,8 @@ impl GDSIIFile {
                                 sname: sn.clone(),
                                 xy: xy[0],
                                 strans: strans.clone(),
+                                elflags,
+                                plex,
                                 properties: properties.clone(),
                             }))
                         } else {
@@ -379,6 +462,8 @@ impl GDSIIFile {
                             presentation,
                             strans: strans.clone(),
                             width,
+                            elflags,
+                            plex,
                             properties: properties.clone(),
                         }))
                     } else if let (Some(l), Some(nt)) = (layer, nodetype) {
@@ -387,6 +472,8 @@ impl GDSIIFile {
                             layer: l,
                             nodetype: nt,
                             xy: xy.clone(),
+                            elflags,
+                            plex,
                             properties: properties.clone(),
                         }))
                     } else if let (Some(l), Some(bt)) = (layer, boxtype) {
@@ -395,6 +482,8 @@ impl GDSIIFile {
                             layer: l,
                             boxtype: bt,
                             xy: xy.clone(),
+                            elflags,
+                            plex,
                             properties: properties.clone(),
                         }))
                     } else {
@@ -439,6 +528,8 @@ impl GDSIIFile {
                     nodetype = None;
                     xy.clear();
                     properties.clear();
+                    elflags = None;
+                    plex = None;
                 }
                 0x16 => {
                     // TEXTTYPE
@@ -481,15 +572,27 @@ impl GDSIIFile {
                     // PATHTYPE
                     pathtype = Some(Self::parse_i16(&data)?);
                 }
+                0x26 => {
+                    // ELFLAGS - Element flags
+                    elflags = Some(Self::parse_i16(&data)?);
+                }
                 0x2A => {
                     // NODETYPE
                     nodetype = Some(Self::parse_i16(&data)?);
                 }
-                0x2B => { // PROPATTR
-                     // Property attribute - next PROPVALUE will have the value
+                0x2B => {
+                    // PROPATTR - Property attribute number
+                    current_prop_attr = Some(Self::parse_i16(&data)?);
                 }
-                0x2C => { // PROPVALUE
-                     // Property value - would need to pair with PROPATTR
+                0x2C => {
+                    // PROPVALUE - Property value string
+                    if let Some(attr) = current_prop_attr.take() {
+                        let value = Self::parse_string(&data)?;
+                        properties.push(GDSProperty {
+                            attribute: attr,
+                            value,
+                        });
+                    }
                 }
                 0x2D => {
                     // BOX
@@ -497,10 +600,24 @@ impl GDSIIFile {
                     boxtype = None;
                     xy.clear();
                     properties.clear();
+                    elflags = None;
+                    plex = None;
                 }
                 0x2E => {
                     // BOXTYPE
                     boxtype = Some(Self::parse_i16(&data)?);
+                }
+                0x2F => {
+                    // PLEX - Plex identifier
+                    plex = Some(Self::parse_i32(&data)?);
+                }
+                0x30 => {
+                    // BGNEXTN - Path extension at beginning
+                    bgnextn = Some(Self::parse_i32(&data)?);
+                }
+                0x31 => {
+                    // ENDEXTN - Path extension at end
+                    endextn = Some(Self::parse_i32(&data)?);
                 }
                 _ => {
                     // Skip unknown record types
@@ -548,6 +665,32 @@ impl GDSIIFile {
         units_data.extend_from_slice(&Self::format_real8(self.units.0));
         units_data.extend_from_slice(&Self::format_real8(self.units.1));
         Self::write_record(writer, 0x03, DataType::EightByteReal, &units_data)?;
+
+        // REFLIBS - Referenced libraries
+        for reflib in &self.reflibs {
+            Self::write_record(writer, 0x1F, DataType::AsciiString, reflib.as_bytes())?;
+        }
+
+        // FONTS - Font table
+        if !self.fonts.is_empty() {
+            let mut font_data = Vec::new();
+            for font in &self.fonts {
+                let mut font_bytes = font.as_bytes().to_vec();
+                font_bytes.resize(44, 0); // Each font name is 44 bytes
+                font_data.extend_from_slice(&font_bytes);
+            }
+            Self::write_record(writer, 0x29, DataType::AsciiString, &font_data)?;
+        }
+
+        // GENERATIONS - Backup generations
+        if let Some(gen) = self.generations {
+            Self::write_record(writer, 0x3C, DataType::TwoByteSignedInt, &gen.to_be_bytes())?;
+        }
+
+        // ATTRTABLE - Attribute table reference
+        if let Some(ref attrtable) = self.attrtable {
+            Self::write_record(writer, 0x3D, DataType::AsciiString, attrtable.as_bytes())?;
+        }
 
         // Write structures
         for structure in &self.structures {
@@ -610,6 +753,44 @@ impl GDSIIFile {
         Ok(())
     }
 
+    fn write_properties<W: Write>(
+        writer: &mut W,
+        properties: &[GDSProperty],
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        for prop in properties {
+            // PROPATTR
+            Self::write_record(
+                writer,
+                0x2B,
+                DataType::TwoByteSignedInt,
+                &prop.attribute.to_be_bytes(),
+            )?;
+            // PROPVALUE
+            Self::write_record(writer, 0x2C, DataType::AsciiString, prop.value.as_bytes())?;
+        }
+        Ok(())
+    }
+
+    fn write_elflags_plex<W: Write>(
+        writer: &mut W,
+        elflags: Option<i16>,
+        plex: Option<i32>,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        // ELFLAGS (0x26) must come before PLEX (0x2F)
+        if let Some(flags) = elflags {
+            Self::write_record(
+                writer,
+                0x26,
+                DataType::TwoByteSignedInt,
+                &flags.to_be_bytes(),
+            )?;
+        }
+        if let Some(p) = plex {
+            Self::write_record(writer, 0x2F, DataType::FourByteSignedInt, &p.to_be_bytes())?;
+        }
+        Ok(())
+    }
+
     // Parsing helpers
     fn parse_i16(data: &[u8]) -> Result<i16, Box<dyn std::error::Error>> {
         if data.len() < 2 {
@@ -628,7 +809,9 @@ impl GDSIIFile {
     fn parse_string(data: &[u8]) -> Result<String, Box<dyn std::error::Error>> {
         // GDSII strings are null-terminated or padded
         let end = data.iter().position(|&b| b == 0).unwrap_or(data.len());
-        Ok(String::from_utf8(data[..end].to_vec())?)
+        // Use from_utf8_lossy to handle non-UTF8 strings gracefully
+        // GDSII spec uses ASCII, but some tools may write non-UTF8 data
+        Ok(String::from_utf8_lossy(&data[..end]).into_owned())
     }
 
     fn parse_real8(data: &[u8]) -> Result<f64, Box<dyn std::error::Error>> {
@@ -780,6 +963,16 @@ impl GDSStructure {
         // STRNAME
         GDSIIFile::write_record(writer, 0x06, DataType::AsciiString, self.name.as_bytes())?;
 
+        // STRCLASS - Structure class
+        if let Some(strclass) = self.strclass {
+            GDSIIFile::write_record(
+                writer,
+                0x34,
+                DataType::TwoByteSignedInt,
+                &strclass.to_be_bytes(),
+            )?;
+        }
+
         // Write elements
         for element in &self.elements {
             element.write(writer)?;
@@ -811,6 +1004,9 @@ impl Boundary {
         // BOUNDARY
         GDSIIFile::write_record(writer, 0x08, DataType::NoData, &[])?;
 
+        // ELFLAGS and PLEX (must come before other element data)
+        GDSIIFile::write_elflags_plex(writer, self.elflags, self.plex)?;
+
         // LAYER
         GDSIIFile::write_record(
             writer,
@@ -835,6 +1031,9 @@ impl Boundary {
         }
         GDSIIFile::write_record(writer, 0x10, DataType::FourByteSignedInt, &xy_data)?;
 
+        // Properties
+        GDSIIFile::write_properties(writer, &self.properties)?;
+
         // ENDEL
         GDSIIFile::write_record(writer, 0x11, DataType::NoData, &[])?;
 
@@ -846,6 +1045,9 @@ impl GPath {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         // PATH
         GDSIIFile::write_record(writer, 0x09, DataType::NoData, &[])?;
+
+        // ELFLAGS and PLEX
+        GDSIIFile::write_elflags_plex(writer, self.elflags, self.plex)?;
 
         // LAYER
         GDSIIFile::write_record(
@@ -876,6 +1078,16 @@ impl GPath {
             GDSIIFile::write_record(writer, 0x0F, DataType::FourByteSignedInt, &w.to_be_bytes())?;
         }
 
+        // BGNEXTN
+        if let Some(bgn) = self.bgnextn {
+            GDSIIFile::write_record(writer, 0x30, DataType::FourByteSignedInt, &bgn.to_be_bytes())?;
+        }
+
+        // ENDEXTN
+        if let Some(end) = self.endextn {
+            GDSIIFile::write_record(writer, 0x31, DataType::FourByteSignedInt, &end.to_be_bytes())?;
+        }
+
         // XY
         let mut xy_data = Vec::new();
         for (x, y) in &self.xy {
@@ -883,6 +1095,9 @@ impl GPath {
             xy_data.extend_from_slice(&y.to_be_bytes());
         }
         GDSIIFile::write_record(writer, 0x10, DataType::FourByteSignedInt, &xy_data)?;
+
+        // Properties
+        GDSIIFile::write_properties(writer, &self.properties)?;
 
         // ENDEL
         GDSIIFile::write_record(writer, 0x11, DataType::NoData, &[])?;
@@ -895,6 +1110,9 @@ impl StructRef {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         // SREF
         GDSIIFile::write_record(writer, 0x0A, DataType::NoData, &[])?;
+
+        // ELFLAGS and PLEX
+        GDSIIFile::write_elflags_plex(writer, self.elflags, self.plex)?;
 
         // SNAME
         GDSIIFile::write_record(writer, 0x12, DataType::AsciiString, self.sname.as_bytes())?;
@@ -910,6 +1128,9 @@ impl StructRef {
         xy_data.extend_from_slice(&self.xy.1.to_be_bytes());
         GDSIIFile::write_record(writer, 0x10, DataType::FourByteSignedInt, &xy_data)?;
 
+        // Properties
+        GDSIIFile::write_properties(writer, &self.properties)?;
+
         // ENDEL
         GDSIIFile::write_record(writer, 0x11, DataType::NoData, &[])?;
 
@@ -921,6 +1142,9 @@ impl ArrayRef {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         // AREF
         GDSIIFile::write_record(writer, 0x0B, DataType::NoData, &[])?;
+
+        // ELFLAGS and PLEX
+        GDSIIFile::write_elflags_plex(writer, self.elflags, self.plex)?;
 
         // SNAME
         GDSIIFile::write_record(writer, 0x12, DataType::AsciiString, self.sname.as_bytes())?;
@@ -944,6 +1168,9 @@ impl ArrayRef {
         }
         GDSIIFile::write_record(writer, 0x10, DataType::FourByteSignedInt, &xy_data)?;
 
+        // Properties
+        GDSIIFile::write_properties(writer, &self.properties)?;
+
         // ENDEL
         GDSIIFile::write_record(writer, 0x11, DataType::NoData, &[])?;
 
@@ -955,6 +1182,9 @@ impl GText {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         // TEXT
         GDSIIFile::write_record(writer, 0x0C, DataType::NoData, &[])?;
+
+        // ELFLAGS and PLEX
+        GDSIIFile::write_elflags_plex(writer, self.elflags, self.plex)?;
 
         // LAYER
         GDSIIFile::write_record(
@@ -991,6 +1221,9 @@ impl GText {
         // STRING
         GDSIIFile::write_record(writer, 0x19, DataType::AsciiString, self.string.as_bytes())?;
 
+        // Properties
+        GDSIIFile::write_properties(writer, &self.properties)?;
+
         // ENDEL
         GDSIIFile::write_record(writer, 0x11, DataType::NoData, &[])?;
 
@@ -1002,6 +1235,9 @@ impl Node {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         // NODE
         GDSIIFile::write_record(writer, 0x15, DataType::NoData, &[])?;
+
+        // ELFLAGS and PLEX
+        GDSIIFile::write_elflags_plex(writer, self.elflags, self.plex)?;
 
         // LAYER
         GDSIIFile::write_record(
@@ -1027,6 +1263,9 @@ impl Node {
         }
         GDSIIFile::write_record(writer, 0x10, DataType::FourByteSignedInt, &xy_data)?;
 
+        // Properties
+        GDSIIFile::write_properties(writer, &self.properties)?;
+
         // ENDEL
         GDSIIFile::write_record(writer, 0x11, DataType::NoData, &[])?;
 
@@ -1038,6 +1277,9 @@ impl GDSBox {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
         // BOX
         GDSIIFile::write_record(writer, 0x2D, DataType::NoData, &[])?;
+
+        // ELFLAGS and PLEX
+        GDSIIFile::write_elflags_plex(writer, self.elflags, self.plex)?;
 
         // LAYER
         GDSIIFile::write_record(
@@ -1062,6 +1304,9 @@ impl GDSBox {
             xy_data.extend_from_slice(&y.to_be_bytes());
         }
         GDSIIFile::write_record(writer, 0x10, DataType::FourByteSignedInt, &xy_data)?;
+
+        // Properties
+        GDSIIFile::write_properties(writer, &self.properties)?;
 
         // ENDEL
         GDSIIFile::write_record(writer, 0x11, DataType::NoData, &[])?;

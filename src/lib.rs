@@ -41,6 +41,7 @@
 //!     name: "TOP".to_string(),
 //!     creation_time: GDSTime::now(),
 //!     modification_time: GDSTime::now(),
+//!     strclass: None,
 //!     elements: Vec::new(),
 //! };
 //!
@@ -48,6 +49,8 @@
 //!     layer: 1,
 //!     datatype: 0,
 //!     xy: vec![(0, 0), (1000, 0), (1000, 1000), (0, 1000), (0, 0)],
+//!     elflags: None,
+//!     plex: None,
 //!     properties: Vec::new(),
 //! }));
 //!
@@ -84,9 +87,11 @@
 //! - [`streaming`] - Streaming parser for large files
 //! - [`properties`] - Property management utilities
 //! - [`aref_expansion`] - Array reference expansion tools
+//! - [`format_detection`] - File format detection by magic bytes
 
 pub mod aref_expansion;
 pub mod converter;
+pub mod format_detection;
 pub mod gdsii;
 pub mod oasis;
 pub mod properties;

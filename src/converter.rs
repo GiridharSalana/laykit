@@ -54,6 +54,7 @@ pub fn oasis_to_gdsii(oasis: &OASISFile) -> Result<GDSIIFile, Box<dyn std::error
             name: cell.name.clone(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+            strclass: None,
             elements: Vec::new(),
         };
 
@@ -198,6 +199,8 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 layer: rect.layer as i16,
                 datatype: rect.datatype as i16,
                 xy: vec![(x, y), (x + w, y), (x + w, y + h), (x, y + h), (x, y)],
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }))
         }
@@ -212,6 +215,8 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 layer: poly.layer as i16,
                 datatype: poly.datatype as i16,
                 xy,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }))
         }
@@ -227,7 +232,11 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 datatype: path.datatype as i16,
                 pathtype: 0,
                 width: Some((path.half_width * 2) as i32),
+                bgnextn: None,
+                endextn: None,
                 xy,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }))
         }
@@ -239,6 +248,8 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
             presentation: None,
             strans: None,
             width: None,
+            elflags: None,
+            plex: None,
             properties: Vec::new(),
         })),
         OASISElement::Placement(placement) => {
@@ -261,6 +272,8 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 sname: placement.cell_name.clone(),
                 xy: (placement.x as i32, placement.y as i32),
                 strans,
+                elflags: None,
+                plex: None,
                 properties: Vec::new(),
             }))
         }

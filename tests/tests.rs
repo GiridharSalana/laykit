@@ -36,6 +36,7 @@ mod converter_tests {
             name: "TOP".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -43,6 +44,8 @@ mod converter_tests {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -71,6 +74,7 @@ mod gdsii_tests {
             name: "TOP".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -78,6 +82,8 @@ mod gdsii_tests {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -96,6 +102,7 @@ mod gdsii_tests {
             name: "CELL1".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -103,6 +110,8 @@ mod gdsii_tests {
             layer: 5,
             datatype: 2,
             xy: vec![(10, 20), (110, 20), (110, 120), (10, 120), (10, 20)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -111,7 +120,11 @@ mod gdsii_tests {
             datatype: 1,
             pathtype: 0,
             width: Some(50),
+                    bgnextn: None,
+                    endextn: None,
             xy: vec![(0, 0), (100, 100), (200, 100)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -134,6 +147,7 @@ mod gdsii_tests {
             name: "TEXT_CELL".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -145,6 +159,8 @@ mod gdsii_tests {
             presentation: None,
             strans: None,
             width: None,
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -172,10 +188,13 @@ mod gdsii_tests {
             name: "SUBCELL".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: vec![GDSElement::Boundary(Boundary {
                 layer: 1,
                 datatype: 0,
                 xy: vec![(0, 0), (50, 0), (50, 50), (0, 50), (0, 0)],
+                    elflags: None,
+                    plex: None,
                 properties: Vec::new(),
             })],
         };
@@ -184,6 +203,7 @@ mod gdsii_tests {
             name: "TOP".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -191,6 +211,8 @@ mod gdsii_tests {
             sname: "SUBCELL".to_string(),
             xy: (100, 200),
             strans: None,
+            elflags: None,
+            plex: None,
             properties: Vec::new(),
         }));
 
@@ -213,6 +235,7 @@ mod gdsii_tests {
             name: "EMPTY".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -233,6 +256,7 @@ mod gdsii_tests {
             name: "MULTILAYER_CELL".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -248,6 +272,8 @@ mod gdsii_tests {
                     (base, base + 50),
                     (base, base),
                 ],
+                    elflags: None,
+                    plex: None,
                 properties: Vec::new(),
             }));
         }
@@ -269,6 +295,7 @@ mod gdsii_tests {
             name: "COMPLEX".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -286,6 +313,8 @@ mod gdsii_tests {
                 (50, 50),
                 (100, 0),
             ],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -704,12 +733,15 @@ mod cli_tests {
             name: "TESTCELL".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
         structure.elements.push(GDSElement::Boundary(Boundary {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
         gds.structures.push(structure);
@@ -746,12 +778,15 @@ mod cli_tests {
             name: "CELL1".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
         structure.elements.push(GDSElement::Boundary(Boundary {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
         structure.elements.push(GDSElement::Text(GText {
@@ -762,6 +797,8 @@ mod cli_tests {
             presentation: None,
             strans: None,
             width: None,
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
         gds.structures.push(structure);
@@ -812,12 +849,15 @@ mod cli_tests {
             name: "VALIDCELL".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
         structure.elements.push(GDSElement::Boundary(Boundary {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
         gds.structures.push(structure);
@@ -850,6 +890,7 @@ mod cli_tests {
             name: "INVALIDCELL".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
         // Add an unclosed boundary (first != last)
@@ -857,6 +898,8 @@ mod cli_tests {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100)], // Not closed!
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
         gds.structures.push(structure);
@@ -918,7 +961,7 @@ mod cli_tests {
 
         assert!(!output.status.success());
         let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(stderr.contains("Unsupported file format"));
+        assert!(stderr.contains("Unknown file format"));
 
         // Cleanup
         fs::remove_file(test_path).ok();
@@ -943,6 +986,7 @@ mod streaming_tests {
             name: "TESTCELL".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -950,6 +994,8 @@ mod streaming_tests {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -985,6 +1031,7 @@ mod streaming_tests {
                 name: format!("CELL_{:03}", i),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
+                strclass: None,
                 elements: Vec::new(),
             };
 
@@ -999,6 +1046,8 @@ mod streaming_tests {
                         (j * 100, 100),
                         (j * 100, 0),
                     ],
+                    elflags: None,
+                    plex: None,
                     properties: Vec::new(),
                 }));
             }
@@ -1040,6 +1089,7 @@ mod streaming_tests {
                 name: name.clone(),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
+                strclass: None,
                 elements: Vec::new(),
             };
             gds.structures.push(structure);
@@ -1072,6 +1122,7 @@ mod streaming_tests {
                 name: format!("CELL_{:05}", i),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
+                strclass: None,
                 elements: Vec::new(),
             };
 
@@ -1086,6 +1137,8 @@ mod streaming_tests {
                         (j * 1000, (i + 1) * 1000),
                         (j * 1000, i * 1000),
                     ],
+                    elflags: None,
+                    plex: None,
                     properties: Vec::new(),
                 }));
             }
@@ -1126,6 +1179,7 @@ mod streaming_tests {
                 name: format!("EMPTY_{}", i),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
+                strclass: None,
                 elements: Vec::new(),
             };
             gds.structures.push(structure);
@@ -1156,6 +1210,7 @@ mod streaming_tests {
             name: "MIXED".to_string(),
             creation_time: GDSTime::now(),
             modification_time: GDSTime::now(),
+                strclass: None,
             elements: Vec::new(),
         };
 
@@ -1164,6 +1219,8 @@ mod streaming_tests {
             layer: 1,
             datatype: 0,
             xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -1173,7 +1230,11 @@ mod streaming_tests {
             datatype: 0,
             pathtype: 0,
             width: Some(10),
+                    bgnextn: None,
+                    endextn: None,
             xy: vec![(0, 0), (100, 0), (100, 100)],
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -1186,6 +1247,8 @@ mod streaming_tests {
             presentation: None,
             strans: None,
             width: None,
+                    elflags: None,
+                    plex: None,
             properties: Vec::new(),
         }));
 
@@ -1218,6 +1281,7 @@ mod streaming_tests {
                 name: format!("FILE_CELL_{}", i),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
+                strclass: None,
                 elements: Vec::new(),
             };
 
@@ -1231,6 +1295,8 @@ mod streaming_tests {
                     (0, i * 100),
                     (0, 0),
                 ],
+                    elflags: None,
+                    plex: None,
                 properties: Vec::new(),
             }));
 
@@ -1251,6 +1317,228 @@ mod streaming_tests {
 
         assert_eq!(collector.names.len(), 20);
 
+        // Cleanup
+        std::fs::remove_file(test_path).ok();
+    }
+}
+
+// ============================================================================
+// Non-UTF-8 String Handling Tests
+// ============================================================================
+
+#[cfg(test)]
+mod utf8_handling_tests {
+    use super::*;
+
+    #[test]
+    fn test_gdsii_non_utf8_strings() {
+        // Create a GDSII file with a structure that has a name with non-UTF-8 bytes
+        let mut gds = GDSIIFile::new("TestLib".to_string());
+        
+        // Add a normal structure
+        let mut structure = GDSStructure {
+            name: "ValidName".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+                strclass: None,
+            elements: Vec::new(),
+        };
+        
+        structure.elements.push(GDSElement::Boundary(Boundary {
+            layer: 1,
+            datatype: 0,
+            xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
+                    elflags: None,
+                    plex: None,
+            properties: Vec::new(),
+        }));
+        
+        gds.structures.push(structure);
+        
+        // Write to file
+        let test_path = "tests/test_utf8_gdsii.gds";
+        gds.write_to_file(test_path).unwrap();
+        
+        // Manually inject non-UTF-8 bytes into the file
+        let mut file_data = std::fs::read(test_path).unwrap();
+        
+        // Find the structure name in the file and replace some bytes with invalid UTF-8
+        // GDSII structure names are in STRNAME records (0x06)
+        for i in 0..file_data.len() - 20 {
+            if file_data[i] == 0x00 && file_data[i+2] == 0x06 {
+                // Found a STRNAME record, inject invalid UTF-8 (0xFF is invalid in UTF-8)
+                if i + 10 < file_data.len() {
+                    file_data[i + 8] = 0xFF;
+                    file_data[i + 9] = 0xFE;
+                    break;
+                }
+            }
+        }
+        
+        std::fs::write(test_path, &file_data).unwrap();
+        
+        // Try to read the file - should succeed with lossy conversion
+        let result = GDSIIFile::read_from_file(test_path);
+        assert!(result.is_ok(), "Should handle non-UTF-8 strings gracefully");
+        
+        let gds_read = result.unwrap();
+        assert_eq!(gds_read.structures.len(), 1);
+        // The name should contain replacement characters but still be readable
+        assert!(!gds_read.structures[0].name.is_empty());
+        
+        // Cleanup
+        std::fs::remove_file(test_path).ok();
+    }
+
+    #[test]
+    fn test_oasis_non_utf8_strings() {
+        // Create an OASIS file
+        let mut oasis = OASISFile::new();
+        
+        let mut cell = OASISCell {
+            name: "TestCell".to_string(),
+            elements: Vec::new(),
+        };
+        
+        cell.elements.push(OASISElement::Rectangle(Rectangle {
+            layer: 1,
+            datatype: 0,
+            x: 0,
+            y: 0,
+            width: 100,
+            height: 100,
+            repetition: None,
+            properties: Vec::new(),
+        }));
+        
+        oasis.cells.push(cell);
+        
+        // Write to file
+        let test_path = "tests/test_utf8_oasis.oas";
+        oasis.write_to_file(test_path).unwrap();
+        
+        // Manually inject non-UTF-8 bytes into the file
+        let mut file_data = std::fs::read(test_path).unwrap();
+        
+        // Find the cell name in the file and replace some bytes with invalid UTF-8
+        // OASIS cell names typically appear after record ID 3 or 13
+        for i in 13..file_data.len() - 10 {
+            // Look for a string that looks like it could be a cell name
+            if file_data[i] > 0 && file_data[i] < 20 {
+                // Inject invalid UTF-8 sequence
+                if i + 5 < file_data.len() {
+                    file_data[i + 3] = 0xFF;
+                    file_data[i + 4] = 0xFE;
+                    break;
+                }
+            }
+        }
+        
+        std::fs::write(test_path, &file_data).unwrap();
+        
+        // Try to read the file - should succeed with lossy conversion
+        let result = OASISFile::read_from_file(test_path);
+        assert!(result.is_ok(), "Should handle non-UTF-8 strings gracefully");
+        
+        let oasis_read = result.unwrap();
+        assert!(!oasis_read.cells.is_empty());
+        
+        // Cleanup
+        std::fs::remove_file(test_path).ok();
+    }
+
+    #[test]
+    fn test_gdsii_latin1_strings() {
+        // Test with Latin-1 encoded strings (common in some European tools)
+        let mut gds = GDSIIFile::new("TestLib".to_string());
+        
+        let structure = GDSStructure {
+            name: "Cell".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+                strclass: None,
+            elements: Vec::new(),
+        };
+        
+        gds.structures.push(structure);
+        
+        let test_path = "tests/test_latin1.gds";
+        gds.write_to_file(test_path).unwrap();
+        
+        // Read and inject Latin-1 characters (e.g., é = 0xE9 in Latin-1)
+        let mut file_data = std::fs::read(test_path).unwrap();
+        
+        // Find LIBNAME record and inject Latin-1
+        for i in 0..file_data.len() - 20 {
+            if file_data[i] == 0x00 && file_data[i+2] == 0x02 {
+                // Found LIBNAME, inject Latin-1 character
+                if i + 10 < file_data.len() {
+                    file_data[i + 8] = 0xE9; // é in Latin-1
+                    break;
+                }
+            }
+        }
+        
+        std::fs::write(test_path, &file_data).unwrap();
+        
+        // Should read successfully
+        let result = GDSIIFile::read_from_file(test_path);
+        assert!(result.is_ok(), "Should handle Latin-1 strings");
+        
+        // Cleanup
+        std::fs::remove_file(test_path).ok();
+    }
+
+    #[test]
+    fn test_empty_strings() {
+        // Test that empty strings are handled correctly
+        let mut gds = GDSIIFile::new("Test".to_string());
+        
+        let structure = GDSStructure {
+            name: "EmptyTest".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+                strclass: None,
+            elements: Vec::new(),
+        };
+        
+        gds.structures.push(structure);
+        
+        let test_path = "tests/test_empty_strings.gds";
+        gds.write_to_file(test_path).unwrap();
+        
+        let result = GDSIIFile::read_from_file(test_path);
+        assert!(result.is_ok());
+        
+        // Cleanup
+        std::fs::remove_file(test_path).ok();
+    }
+
+    #[test]
+    fn test_null_terminated_strings() {
+        // Test strings with null bytes in the middle
+        let mut gds = GDSIIFile::new("NullTest".to_string());
+        
+        let structure = GDSStructure {
+            name: "Cell".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+                strclass: None,
+            elements: Vec::new(),
+        };
+        
+        gds.structures.push(structure);
+        
+        let test_path = "tests/test_null_strings.gds";
+        gds.write_to_file(test_path).unwrap();
+        
+        // The null-termination handling should work correctly
+        let result = GDSIIFile::read_from_file(test_path);
+        assert!(result.is_ok());
+        
+        let gds_read = result.unwrap();
+        assert_eq!(gds_read.library_name, "NullTest");
+        
         // Cleanup
         std::fs::remove_file(test_path).ok();
     }

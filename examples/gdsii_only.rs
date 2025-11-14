@@ -90,6 +90,7 @@ fn create_sample_gdsii() -> GDSIIFile {
         name: "SUBCELL".to_string(),
         creation_time: GDSTime::now(),
         modification_time: GDSTime::now(),
+            strclass: None,
         elements: Vec::new(),
     };
 
@@ -98,6 +99,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         layer: 1,
         datatype: 0,
         xy: vec![(0, 0), (500, 0), (500, 500), (0, 500), (0, 0)],
+            elflags: None,
+            plex: None,
         properties: Vec::new(),
     }));
 
@@ -108,6 +111,7 @@ fn create_sample_gdsii() -> GDSIIFile {
         name: "TOP".to_string(),
         creation_time: GDSTime::now(),
         modification_time: GDSTime::now(),
+            strclass: None,
         elements: Vec::new(),
     };
 
@@ -116,6 +120,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         layer: 1,
         datatype: 0,
         xy: vec![(0, 0), (2000, 0), (2000, 2000), (0, 2000), (0, 0)],
+            elflags: None,
+            plex: None,
         properties: Vec::new(),
     }));
 
@@ -124,6 +130,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         layer: 2,
         datatype: 0,
         xy: vec![(3000, 0), (4000, 0), (3500, 1000), (3000, 0)],
+            elflags: None,
+            plex: None,
         properties: Vec::new(),
     }));
 
@@ -139,6 +147,8 @@ fn create_sample_gdsii() -> GDSIIFile {
             (5100, 900),
             (5000, 500),
         ],
+            elflags: None,
+            plex: None,
         properties: Vec::new(),
     }));
 
@@ -148,6 +158,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         datatype: 0,
         pathtype: 0,
         width: Some(100),
+            bgnextn: None,
+            endextn: None,
         xy: vec![
             (0, 2500),
             (1000, 3000),
@@ -155,6 +167,8 @@ fn create_sample_gdsii() -> GDSIIFile {
             (3000, 3000),
             (4000, 2500),
         ],
+            elflags: None,
+            plex: None,
         properties: Vec::new(),
     }));
 
@@ -167,6 +181,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         presentation: None,
         strans: None,
         width: None,
+            elflags: None,
+            plex: None,
         properties: Vec::new(),
     }));
 
@@ -175,6 +191,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         sname: "SUBCELL".to_string(),
         xy: (6000, 0),
         strans: None,
+            elflags: None,
+            plex: None,
         properties: Vec::new(),
     }));
 
