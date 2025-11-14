@@ -628,7 +628,9 @@ impl OASISFile {
         })
     }
 
-    fn read_trapezoid(cursor: &mut Cursor<Vec<u8>>) -> Result<Trapezoid, Box<dyn std::error::Error>> {
+    fn read_trapezoid(
+        cursor: &mut Cursor<Vec<u8>>,
+    ) -> Result<Trapezoid, Box<dyn std::error::Error>> {
         let layer = Self::read_unsigned(cursor)? as u32;
         let datatype = Self::read_unsigned(cursor)? as u32;
         let orientation = Self::read_u8(cursor)? != 0;
@@ -654,7 +656,9 @@ impl OASISFile {
         })
     }
 
-    fn read_ctrapezoid(cursor: &mut Cursor<Vec<u8>>) -> Result<CTrapezoid, Box<dyn std::error::Error>> {
+    fn read_ctrapezoid(
+        cursor: &mut Cursor<Vec<u8>>,
+    ) -> Result<CTrapezoid, Box<dyn std::error::Error>> {
         let layer = Self::read_unsigned(cursor)? as u32;
         let datatype = Self::read_unsigned(cursor)? as u32;
         let trap_type = Self::read_u8(cursor)?;
@@ -872,7 +876,11 @@ impl OASISFile {
                 cursor.read_exact(&mut bytes)?;
                 Ok(f64::from_le_bytes(bytes))
             }
-            _ => Err(format!("Invalid real type: {} (may indicate corrupted file or misaligned read)", type_byte).into()),
+            _ => Err(format!(
+                "Invalid real type: {} (may indicate corrupted file or misaligned read)",
+                type_byte
+            )
+            .into()),
         }
     }
 

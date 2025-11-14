@@ -219,4 +219,3 @@ mod tests {
         assert_eq!(FileFormat::Unknown.name(), "Unknown");
     }
 }
-

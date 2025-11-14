@@ -13,10 +13,10 @@ pub struct GDSIIFile {
     pub modification_time: GDSTime,
     pub access_time: GDSTime,
     pub library_name: String,
-    pub units: (f64, f64), // (user_units, database_units in meters)
-    pub reflibs: Vec<String>, // Referenced library names (record 0x1F)
-    pub fonts: Vec<String>,   // Font table (record 0x29)
-    pub generations: Option<i16>, // Backup generations (record 0x3C)
+    pub units: (f64, f64),         // (user_units, database_units in meters)
+    pub reflibs: Vec<String>,      // Referenced library names (record 0x1F)
+    pub fonts: Vec<String>,        // Font table (record 0x29)
+    pub generations: Option<i16>,  // Backup generations (record 0x3C)
     pub attrtable: Option<String>, // Attribute table reference (record 0x3D)
     pub structures: Vec<GDSStructure>,
 }
@@ -70,8 +70,8 @@ pub struct GPath {
     pub bgnextn: Option<i32>, // Path extension at beginning (record 0x30)
     pub endextn: Option<i32>, // Path extension at end (record 0x31)
     pub xy: Vec<(i32, i32)>,
-    pub elflags: Option<i16>,  // Element flags (record 0x26)
-    pub plex: Option<i32>,     // Plex identifier (record 0x2F)
+    pub elflags: Option<i16>, // Element flags (record 0x26)
+    pub plex: Option<i32>,    // Plex identifier (record 0x2F)
     pub properties: Vec<GDSProperty>,
 }
 
@@ -232,7 +232,7 @@ impl GDSIIFile {
         let mut bgnextn: Option<i32> = None; // Path extension at beginning
         let mut endextn: Option<i32> = None; // Path extension at end
         let mut elflags: Option<i16> = None; // Element flags
-        let mut plex: Option<i32> = None;    // Plex identifier
+        let mut plex: Option<i32> = None; // Plex identifier
         let mut texttype: Option<i16> = None;
         let mut text_string: Option<String> = None;
         let mut presentation: Option<i16> = None;
@@ -1080,12 +1080,22 @@ impl GPath {
 
         // BGNEXTN
         if let Some(bgn) = self.bgnextn {
-            GDSIIFile::write_record(writer, 0x30, DataType::FourByteSignedInt, &bgn.to_be_bytes())?;
+            GDSIIFile::write_record(
+                writer,
+                0x30,
+                DataType::FourByteSignedInt,
+                &bgn.to_be_bytes(),
+            )?;
         }
 
         // ENDEXTN
         if let Some(end) = self.endextn {
-            GDSIIFile::write_record(writer, 0x31, DataType::FourByteSignedInt, &end.to_be_bytes())?;
+            GDSIIFile::write_record(
+                writer,
+                0x31,
+                DataType::FourByteSignedInt,
+                &end.to_be_bytes(),
+            )?;
         }
 
         // XY

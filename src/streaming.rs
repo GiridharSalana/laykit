@@ -359,7 +359,7 @@ mod tests {
                 name: name.to_string(),
                 creation_time: GDSTime::now(),
                 modification_time: GDSTime::now(),
-            strclass: None,
+                strclass: None,
                 elements: Vec::new(),
             };
             gds.structures.push(structure);

@@ -67,7 +67,7 @@ fn create_sample_gdsii() -> GDSIIFile {
         name: "TOP".to_string(),
         creation_time: GDSTime::now(),
         modification_time: GDSTime::now(),
-            strclass: None,
+        strclass: None,
         elements: Vec::new(),
     };
 
@@ -76,8 +76,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         layer: 1,
         datatype: 0,
         xy: vec![(0, 0), (1000, 0), (1000, 1000), (0, 1000), (0, 0)],
-            elflags: None,
-            plex: None,
+        elflags: None,
+        plex: None,
         properties: Vec::new(),
     }));
 
@@ -86,8 +86,8 @@ fn create_sample_gdsii() -> GDSIIFile {
         layer: 2,
         datatype: 0,
         xy: vec![(2000, 0), (3000, 0), (2500, 1000), (2000, 0)],
-            elflags: None,
-            plex: None,
+        elflags: None,
+        plex: None,
         properties: Vec::new(),
     }));
 
@@ -97,11 +97,11 @@ fn create_sample_gdsii() -> GDSIIFile {
         datatype: 0,
         pathtype: 0,
         width: Some(100),
-            bgnextn: None,
-            endextn: None,
+        bgnextn: None,
+        endextn: None,
         xy: vec![(0, 1500), (500, 2000), (1000, 1500), (1500, 2000)],
-            elflags: None,
-            plex: None,
+        elflags: None,
+        plex: None,
         properties: Vec::new(),
     }));
 

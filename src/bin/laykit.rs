@@ -32,7 +32,10 @@ fn main() {
 }
 
 fn print_usage() {
-    println!("LayKit v{} - IC Layout File Format Tool", env!("CARGO_PKG_VERSION"));
+    println!(
+        "LayKit v{} - IC Layout File Format Tool",
+        env!("CARGO_PKG_VERSION")
+    );
     println!();
     println!("USAGE:");
     println!("    laykit <COMMAND> [OPTIONS]");
