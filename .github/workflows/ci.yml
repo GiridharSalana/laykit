@@ -152,9 +152,12 @@ jobs:
         uses: astral-sh/setup-uv@v7
         with:
           python-version: '3.12'
+          enable-cache: true
+          cache-dependency-glob: 'tests/pyproject.toml'
 
       - name: Run gdstk cross-validation tests
-        run: uv run --with gdstk python tests/gdstk_validation.py
+        working-directory: tests
+        run: uv run gdstk_validation.py
 
   build-binaries:
     name: Build Release Binaries

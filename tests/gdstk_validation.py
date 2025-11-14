@@ -20,7 +20,7 @@ except ImportError:
     print("ERROR: gdstk not installed. Install with: pip install gdstk")
     sys.exit(1)
 
-LAYKIT_BIN = "./target/release/laykit"
+LAYKIT_BIN = os.path.join(os.path.dirname(__file__), "../target/release/laykit")
 
 def run_laykit(args):
     """Run laykit command and return output."""
