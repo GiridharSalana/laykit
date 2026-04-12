@@ -13,7 +13,7 @@ A production-ready Rust library for reading, writing, and manipulating GDSII and
 
 ```toml
 [dependencies]
-laykit = "0.0.1"
+laykit = "0.0.2"
 ```
 
 ## Quick Start
