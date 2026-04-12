@@ -218,7 +218,20 @@ impl GDSIIFile {
         let mut cursor = 0;
         let mut gds = GDSIIFile::new(String::new());
         let mut current_structure: Option<GDSStructure> = None;
-        let mut current_element: Option<GDSElement> = None;
+
+        // Track which element type is currently being built
+        #[derive(Debug, Clone, Copy, PartialEq)]
+        enum Building {
+            None,
+            Boundary,
+            Path,
+            StructRef,
+            ArrayRef,
+            Text,
+            Node,
+            Box,
+        }
+        let mut building = Building::None;
 
         // Temporary storage for element construction
         let mut layer: Option<i16> = None;
@@ -229,10 +242,10 @@ impl GDSIIFile {
         let mut strans: Option<STrans> = None;
         let mut width: Option<i32> = None;
         let mut pathtype: Option<i16> = None;
-        let mut bgnextn: Option<i32> = None; // Path extension at beginning
-        let mut endextn: Option<i32> = None; // Path extension at end
-        let mut elflags: Option<i16> = None; // Element flags
-        let mut plex: Option<i32> = None; // Plex identifier
+        let mut bgnextn: Option<i32> = None;
+        let mut endextn: Option<i32> = None;
+        let mut elflags: Option<i16> = None;
+        let mut plex: Option<i32> = None;
         let mut texttype: Option<i16> = None;
         let mut text_string: Option<String> = None;
         let mut presentation: Option<i16> = None;
@@ -322,6 +335,7 @@ impl GDSIIFile {
                 }
                 0x08 => {
                     // BOUNDARY
+                    building = Building::Boundary;
                     layer = None;
                     datatype = None;
                     xy.clear();
@@ -331,6 +345,7 @@ impl GDSIIFile {
                 }
                 0x09 => {
                     // PATH
+                    building = Building::Path;
                     layer = None;
                     datatype = None;
                     xy.clear();
@@ -344,6 +359,7 @@ impl GDSIIFile {
                 }
                 0x0A => {
                     // SREF
+                    building = Building::StructRef;
                     sname = None;
                     xy.clear();
                     strans = None;
@@ -353,6 +369,7 @@ impl GDSIIFile {
                 }
                 0x0B => {
                     // AREF
+                    building = Building::ArrayRef;
                     sname = None;
                     xy.clear();
                     strans = None;
@@ -363,6 +380,7 @@ impl GDSIIFile {
                 }
                 0x0C => {
                     // TEXT
+                    building = Building::Text;
                     layer = None;
                     texttype = None;
                     xy.clear();
@@ -370,6 +388,26 @@ impl GDSIIFile {
                     presentation = None;
                     strans = None;
                     width = None;
+                    properties.clear();
+                    elflags = None;
+                    plex = None;
+                }
+                0x15 => {
+                    // NODE
+                    building = Building::Node;
+                    layer = None;
+                    nodetype = None;
+                    xy.clear();
+                    properties.clear();
+                    elflags = None;
+                    plex = None;
+                }
+                0x2D => {
+                    // BOX
+                    building = Building::Box;
+                    layer = None;
+                    boxtype = None;
+                    xy.clear();
                     properties.clear();
                     elflags = None;
                     plex = None;
@@ -391,29 +429,28 @@ impl GDSIIFile {
                     xy = Self::parse_xy(&data)?;
                 }
                 0x11 => {
-                    // ENDEL
-                    // Finalize current element
-                    let _element = current_element.take();
-
-                    // Or create element based on what we're building
-                    let new_element = if let (Some(l), Some(d)) = (layer, datatype) {
-                        if !xy.is_empty() {
-                            // Could be BOUNDARY
-                            Some(GDSElement::Boundary(Boundary {
-                                layer: l,
-                                datatype: d,
-                                xy: xy.clone(),
-                                elflags,
-                                plex,
-                                properties: properties.clone(),
-                            }))
-                        } else {
-                            // PATH
-                            pathtype.map(|pt| {
-                                GDSElement::Path(GPath {
+                    // ENDEL - create element based on tracked type
+                    let new_element = match building {
+                        Building::Boundary => {
+                            if let (Some(l), Some(d)) = (layer, datatype) {
+                                Some(GDSElement::Boundary(Boundary {
                                     layer: l,
                                     datatype: d,
-                                    pathtype: pt,
+                                    xy: xy.clone(),
+                                    elflags,
+                                    plex,
+                                    properties: properties.clone(),
+                                }))
+                            } else {
+                                None
+                            }
+                        }
+                        Building::Path => {
+                            if let (Some(l), Some(d)) = (layer, datatype) {
+                                Some(GDSElement::Path(GPath {
+                                    layer: l,
+                                    datatype: d,
+                                    pathtype: pathtype.unwrap_or(0),
                                     width,
                                     bgnextn,
                                     endextn,
@@ -421,73 +458,90 @@ impl GDSIIFile {
                                     elflags,
                                     plex,
                                     properties: properties.clone(),
-                                })
-                            })
+                                }))
+                            } else {
+                                None
+                            }
                         }
-                    } else if let (Some(sn), Some(cr)) = (sname.as_ref(), colrow) {
-                        // AREF
-                        Some(GDSElement::ArrayRef(ArrayRef {
-                            sname: sn.clone(),
-                            columns: cr.0,
-                            rows: cr.1,
-                            xy: xy.clone(),
-                            strans: strans.clone(),
-                            elflags,
-                            plex,
-                            properties: properties.clone(),
-                        }))
-                    } else if let Some(sn) = sname.as_ref() {
-                        if !xy.is_empty() {
-                            // SREF
-                            Some(GDSElement::StructRef(StructRef {
-                                sname: sn.clone(),
-                                xy: xy[0],
-                                strans: strans.clone(),
-                                elflags,
-                                plex,
-                                properties: properties.clone(),
-                            }))
-                        } else {
-                            None
+                        Building::StructRef => {
+                            if let Some(sn) = sname.as_ref() {
+                                Some(GDSElement::StructRef(StructRef {
+                                    sname: sn.clone(),
+                                    xy: if !xy.is_empty() { xy[0] } else { (0, 0) },
+                                    strans: strans.clone(),
+                                    elflags,
+                                    plex,
+                                    properties: properties.clone(),
+                                }))
+                            } else {
+                                None
+                            }
                         }
-                    } else if let (Some(l), Some(tt), Some(ts)) =
-                        (layer, texttype, text_string.as_ref())
-                    {
-                        // TEXT
-                        Some(GDSElement::Text(GText {
-                            layer: l,
-                            texttype: tt,
-                            string: ts.clone(),
-                            xy: if !xy.is_empty() { xy[0] } else { (0, 0) },
-                            presentation,
-                            strans: strans.clone(),
-                            width,
-                            elflags,
-                            plex,
-                            properties: properties.clone(),
-                        }))
-                    } else if let (Some(l), Some(nt)) = (layer, nodetype) {
-                        // NODE
-                        Some(GDSElement::Node(Node {
-                            layer: l,
-                            nodetype: nt,
-                            xy: xy.clone(),
-                            elflags,
-                            plex,
-                            properties: properties.clone(),
-                        }))
-                    } else if let (Some(l), Some(bt)) = (layer, boxtype) {
-                        // BOX
-                        Some(GDSElement::Box(GDSBox {
-                            layer: l,
-                            boxtype: bt,
-                            xy: xy.clone(),
-                            elflags,
-                            plex,
-                            properties: properties.clone(),
-                        }))
-                    } else {
-                        None
+                        Building::ArrayRef => {
+                            if let (Some(sn), Some(cr)) = (sname.as_ref(), colrow) {
+                                Some(GDSElement::ArrayRef(ArrayRef {
+                                    sname: sn.clone(),
+                                    columns: cr.0,
+                                    rows: cr.1,
+                                    xy: xy.clone(),
+                                    strans: strans.clone(),
+                                    elflags,
+                                    plex,
+                                    properties: properties.clone(),
+                                }))
+                            } else {
+                                None
+                            }
+                        }
+                        Building::Text => {
+                            if let (Some(l), Some(tt), Some(ts)) =
+                                (layer, texttype, text_string.as_ref())
+                            {
+                                Some(GDSElement::Text(GText {
+                                    layer: l,
+                                    texttype: tt,
+                                    string: ts.clone(),
+                                    xy: if !xy.is_empty() { xy[0] } else { (0, 0) },
+                                    presentation,
+                                    strans: strans.clone(),
+                                    width,
+                                    elflags,
+                                    plex,
+                                    properties: properties.clone(),
+                                }))
+                            } else {
+                                None
+                            }
+                        }
+                        Building::Node => {
+                            if let (Some(l), Some(nt)) = (layer, nodetype) {
+                                Some(GDSElement::Node(Node {
+                                    layer: l,
+                                    nodetype: nt,
+                                    xy: xy.clone(),
+                                    elflags,
+                                    plex,
+                                    properties: properties.clone(),
+                                }))
+                            } else {
+                                None
+                            }
+                        }
+                        Building::Box => {
+                            if let (Some(l), Some(bt)) = (layer, boxtype) {
+                                Some(GDSElement::Box(GDSBox {
+                                    layer: l,
+                                    boxtype: bt,
+                                    xy: xy.clone(),
+                                    elflags,
+                                    plex,
+                                    properties: properties.clone(),
+                                }))
+                            } else {
+                                None
+                            }
+                        }
+                        Building::None => None,
                     };
 
                     if let Some(elem) = new_element {
@@ -496,7 +550,8 @@ impl GDSIIFile {
                         }
                     }
 
-                    // Reset temporary storage
+                    // Reset state
+                    building = Building::None;
                     layer = None;
                     datatype = None;
                     xy.clear();
@@ -511,6 +566,8 @@ impl GDSIIFile {
                     colrow = None;
                     nodetype = None;
                     boxtype = None;
+                    elflags = None;
+                    plex = None;
                 }
                 0x12 => {
                     // SNAME
@@ -521,15 +578,6 @@ impl GDSIIFile {
                     let cols = i16::from_be_bytes([data[0], data[1]]) as u16;
                     let rows = i16::from_be_bytes([data[2], data[3]]) as u16;
                     colrow = Some((cols, rows));
-                }
-                0x15 => {
-                    // NODE
-                    layer = None;
-                    nodetype = None;
-                    xy.clear();
-                    properties.clear();
-                    elflags = None;
-                    plex = None;
                 }
                 0x16 => {
                     // TEXTTYPE
@@ -593,15 +641,6 @@ impl GDSIIFile {
                             value,
                         });
                     }
-                }
-                0x2D => {
-                    // BOX
-                    layer = None;
-                    boxtype = None;
-                    xy.clear();
-                    properties.clear();
-                    elflags = None;
-                    plex = None;
                 }
                 0x2E => {
                     // BOXTYPE
