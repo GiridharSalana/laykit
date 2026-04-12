@@ -463,20 +463,16 @@ impl GDSIIFile {
                                 None
                             }
                         }
-                        Building::StructRef => {
-                            if let Some(sn) = sname.as_ref() {
-                                Some(GDSElement::StructRef(StructRef {
-                                    sname: sn.clone(),
-                                    xy: if !xy.is_empty() { xy[0] } else { (0, 0) },
-                                    strans: strans.clone(),
-                                    elflags,
-                                    plex,
-                                    properties: properties.clone(),
-                                }))
-                            } else {
-                                None
-                            }
-                        }
+                        Building::StructRef => sname.as_ref().map(|sn| {
+                            GDSElement::StructRef(StructRef {
+                                sname: sn.clone(),
+                                xy: if !xy.is_empty() { xy[0] } else { (0, 0) },
+                                strans: strans.clone(),
+                                elflags,
+                                plex,
+                                properties: properties.clone(),
+                            })
+                        }),
                         Building::ArrayRef => {
                             if let (Some(sn), Some(cr)) = (sname.as_ref(), colrow) {
                                 Some(GDSElement::ArrayRef(ArrayRef {

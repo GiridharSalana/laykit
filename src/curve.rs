@@ -57,8 +57,7 @@ impl Curve {
         let start_angle = (-center_offset.1).atan2(-center_offset.0);
         let num_pts = ((angle.abs() / (2.0 * (self.tolerance / radius).acos().max(1e-6))).ceil()
             as usize)
-            .max(2)
-            .min(2000);
+            .clamp(2, 2000);
 
         for i in 1..=num_pts {
             let t = i as f64 / num_pts as f64;
@@ -78,8 +77,7 @@ impl Curve {
         let sweep = final_angle - initial_angle;
         let num_pts = ((sweep.abs() / (2.0 * (self.tolerance / radius).acos().max(1e-6))).ceil()
             as usize)
-            .max(2)
-            .min(2000);
+            .clamp(2, 2000);
 
         let last = *self.points.last().unwrap();
         let center = (
@@ -207,7 +205,7 @@ impl Curve {
                 + ry / rx * rotation.cos() * initial_angle.sin());
 
         let sweep = final_angle - initial_angle;
-        let n = num_points.max(2).min(2000);
+        let n = num_points.clamp(2, 2000);
 
         let cos_r = rotation.cos();
         let sin_r = rotation.sin();
@@ -350,8 +348,7 @@ pub fn ellipse(
             ((final_angle - initial_angle).abs() / (2.0 * (tolerance / r_max).acos().max(1e-6)))
                 .ceil() as usize
         })
-        .max(3)
-        .min(10000);
+        .clamp(3, 10000);
 
     let sweep = final_angle - initial_angle;
     let mut pts = Vec::with_capacity(n + 1);
@@ -564,8 +561,8 @@ mod tests {
         assert!(rr.len() > 4); // More points than plain rectangle
                                // All points should be within the rectangle bounds
         for &(x, y) in &rr {
-            assert!(x >= -0.01 && x <= 10.01, "x={} out of bounds", x);
-            assert!(y >= -0.01 && y <= 5.01, "y={} out of bounds", y);
+            assert!((-0.01..=10.01).contains(&x), "x={} out of bounds", x);
+            assert!((-0.01..=5.01).contains(&y), "y={} out of bounds", y);
         }
     }
 

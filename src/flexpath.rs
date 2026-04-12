@@ -121,8 +121,7 @@ impl FlexPath {
 
         let sweep = final_angle - initial_angle;
         let num_pts = ((sweep.abs() / (2.0 * (self.tolerance / radius).acos())).ceil() as usize)
-            .max(3)
-            .min(1000);
+            .clamp(3, 1000);
 
         for i in 1..=num_pts {
             let angle = initial_angle + sweep * i as f64 / num_pts as f64;

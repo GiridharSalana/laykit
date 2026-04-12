@@ -4,6 +4,13 @@
 
 use crate::geometry::{point_in_polygon, polygon_signed_area};
 
+/// Polygon set: a list of polygons, each a list of (x, y) points.
+type PolySet = Vec<Vec<(f64, f64)>>;
+/// A pair of polygon sets (used by slice).
+type PolySetPair = (PolySet, PolySet);
+/// A pair of point-lists (used internally by slice_polygon).
+type PointPair = (Vec<(f64, f64)>, Vec<(f64, f64)>);
+
 /// Boolean operation type
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BooleanOp {
@@ -269,11 +276,7 @@ fn boolean_xor(a: &[Vec<(f64, f64)>], b: &[Vec<(f64, f64)>]) -> Vec<Vec<(f64, f6
 /// Slice polygons with a line, returning (below/left, above/right) halves.
 /// For Axis::X, `position` is the y coordinate of a horizontal cut.
 /// For Axis::Y, `position` is the x coordinate of a vertical cut.
-pub fn slice(
-    polygons: &[Vec<(f64, f64)>],
-    position: f64,
-    axis: Axis,
-) -> (Vec<Vec<(f64, f64)>>, Vec<Vec<(f64, f64)>>) {
+pub fn slice(polygons: &[Vec<(f64, f64)>], position: f64, axis: Axis) -> PolySetPair {
     let mut below = Vec::new();
     let mut above = Vec::new();
 
@@ -290,11 +293,7 @@ pub fn slice(
     (below, above)
 }
 
-fn slice_polygon(
-    polygon: &[(f64, f64)],
-    position: f64,
-    axis: Axis,
-) -> (Vec<(f64, f64)>, Vec<(f64, f64)>) {
+fn slice_polygon(polygon: &[(f64, f64)], position: f64, axis: Axis) -> PointPair {
     let mut below = Vec::new();
     let mut above = Vec::new();
     let n = polygon.len();
@@ -523,7 +522,7 @@ fn segment_intersect(
     let t = (dx_ab * dy_b - dy_ab * dx_b) / denom;
     let u = (dx_ab * dy_a - dy_ab * dx_a) / denom;
 
-    if t >= 0.0 && t <= 1.0 && u >= 0.0 && u <= 1.0 {
+    if (0.0..=1.0).contains(&t) && (0.0..=1.0).contains(&u) {
         Some((a0.0 + t * dx_a, a0.1 + t * dy_a))
     } else {
         None
