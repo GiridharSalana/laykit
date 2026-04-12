@@ -1,6 +1,6 @@
 # Introduction
 
-**laykit** is a Rust implementation of [gdstk](https://github.com/heitzmann/gdstk) — a library for reading, writing, and manipulating GDSII and OASIS IC layout files.
+**laykit** is a production-ready Rust library for reading, writing, and manipulating GDSII and OASIS IC layout files.
 
 ## What it does
 
@@ -18,10 +18,9 @@
 - **Zero external dependencies** — pure Rust `std` only
 - **164 tests**, 0 failures
 - Idiomatic Rust: `Result`-based error handling, enums for element types, no unsafe code in public API
+- Rust edition 2024
 
-## Project Status
-
-**v0.0.1** — initial release covering full gdstk feature parity:
+## Features
 
 - ✅ GDSII read/write (all 7 element types)
 - ✅ OASIS read/write (all element types)

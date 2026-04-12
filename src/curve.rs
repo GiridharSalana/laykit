@@ -278,13 +278,11 @@ impl Curve {
 
     /// Close the curve by connecting back to the start
     pub fn close(&mut self) -> &mut Self {
-        if let Some(&first) = self.points.first() {
-            if let Some(&last) = self.points.last() {
-                let dx = first.0 - last.0;
-                let dy = first.1 - last.1;
-                if (dx * dx + dy * dy).sqrt() > 1e-12 {
-                    self.points.push(first);
-                }
+        if let (Some(&first), Some(&last)) = (self.points.first(), self.points.last()) {
+            let dx = first.0 - last.0;
+            let dy = first.1 - last.1;
+            if (dx * dx + dy * dy).sqrt() > 1e-12 {
+                self.points.push(first);
             }
         }
         self
@@ -537,7 +535,7 @@ mod tests {
     fn test_regular_polygon() {
         let hex = regular_polygon((0.0, 0.0), 1.0, 6, 0.0);
         assert_eq!(hex.len(), 7); // 6 sides + closing point
-                                  // All vertices should be at distance 1 from center
+        // All vertices should be at distance 1 from center
         for &(x, y) in &hex[..6] {
             let d = (x * x + y * y).sqrt();
             assert!((d - 1.0).abs() < 1e-10, "Distance should be 1, got {}", d);
@@ -559,7 +557,7 @@ mod tests {
     fn test_rounded_rectangle() {
         let rr = rounded_rectangle(0.0, 0.0, 10.0, 5.0, 1.0, 4);
         assert!(rr.len() > 4); // More points than plain rectangle
-                               // All points should be within the rectangle bounds
+        // All points should be within the rectangle bounds
         for &(x, y) in &rr {
             assert!((-0.01..=10.01).contains(&x), "x={} out of bounds", x);
             assert!((-0.01..=5.01).contains(&y), "y={} out of bounds", y);

@@ -413,11 +413,7 @@ fn offset_polygon(
         result.push(offset_pt);
     }
 
-    if result.len() < 3 {
-        None
-    } else {
-        Some(result)
-    }
+    if result.len() < 3 { None } else { Some(result) }
 }
 
 // ============================================================================

@@ -1,7 +1,7 @@
 // FlexPath: Flexible path with configurable end caps and join types
 // Mirrors the FlexPath API of gdstk
 
-use crate::geometry::{bounding_box, BoundingBox};
+use crate::geometry::{BoundingBox, bounding_box};
 use std::f64::consts::PI;
 
 /// End cap style for the start and end of a path

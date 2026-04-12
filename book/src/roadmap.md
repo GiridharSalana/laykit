@@ -1,8 +1,6 @@
 # Roadmap
 
-## v0.0.1 — Current Release ✅
-
-Full gdstk feature parity:
+## Current Release ✅
 
 - ✅ GDSII read/write (all 7 element types)
 - ✅ OASIS read/write (all element types)

@@ -1,5 +1,21 @@
 # Changelog
 
+## [0.0.2] - 2026-04-12
+
+### Changed
+
+- Updated to Rust edition 2024
+- Removed all version pins from documentation — use `cargo add laykit` or see crates.io badge
+- README: removed gdstk framing, added crates.io version badge and documentation links
+- Book: updated installation page (library is now on crates.io), introduction, project structure, roadmap, and testing pages
+- `Cargo.toml`: added `documentation` and `homepage` fields pointing to GitHub Pages
+
+### Fixed
+
+- `src/gdsii.rs`: renamed local variable `gen` → `generations` (reserved keyword in edition 2024)
+- `src/curve.rs`, `src/gdsii.rs`, `src/topology.rs`: collapsed nested `if let` patterns per clippy `collapsible_if` lint
+- `LICENSE`: corrected copyright year and author name
+
 ## [0.0.1] - 2026-04-12
 
 Initial release.

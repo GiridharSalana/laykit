@@ -17,12 +17,25 @@ laykit/
 │   ├── gdsii_only.rs           # GDSII-focused example
 │   └── oasis_only.rs           # OASIS-focused example
 ├── src/
-│   ├── lib.rs                  # Library entry point
-│   ├── gdsii.rs                # GDSII implementation
-│   ├── oasis.rs                # OASIS implementation
-│   └── converter.rs            # Format conversion
+│   ├── lib.rs                  # Library entry point & public API
+│   ├── gdsii.rs                # GDSII read/write
+│   ├── oasis.rs                # OASIS read/write
+│   ├── converter.rs            # Format conversion
+│   ├── geometry.rs             # Geometric operations
+│   ├── boolean_ops.rs          # Boolean polygon operations
+│   ├── flexpath.rs             # Flexible path generation
+│   ├── curve.rs                # Curve primitives
+│   ├── topology.rs             # Cell hierarchy utilities
+│   ├── streaming.rs            # Streaming parser
+│   ├── aref_expansion.rs       # AREF expansion
+│   ├── properties.rs           # Property utilities
+│   ├── format_detection.rs     # Magic-byte format detection
+│   └── bin/
+│       └── laykit.rs           # CLI tool
 ├── tests/
-│   └── tests.rs                # Integration tests
+│   ├── tests.rs                # Integration tests
+│   ├── gdstk_validation.py     # Cross-validation against reference
+│   └── run_all_tests.sh        # Test runner script
 ├── target/                     # Build artifacts (gitignored)
 ├── book.toml                   # mdBook configuration
 ├── Cargo.toml                  # Project manifest
@@ -252,24 +265,18 @@ Project manifest:
 ```toml
 [package]
 name = "laykit"
-version = "0.2.4"
-edition = "2021"
+edition = "2024"
 authors = ["Giridhar Salana <giridharsalana@gmail.com>"]
-description = "Production-ready Rust library for GDSII and OASIS"
+description = "Production-ready Rust library for reading, writing, and manipulating GDSII and OASIS IC layout files"
 repository = "https://github.com/giridharsalana/laykit"
+documentation = "https://giridharsalana.github.io/laykit"
+homepage = "https://giridharsalana.github.io/laykit"
 license = "MIT"
 keywords = ["gdsii", "oasis", "ic-layout", "vlsi", "eda"]
 categories = ["parser-implementations", "encoding"]
 
 [dependencies]
 # Zero dependencies!
-
-[dev-dependencies]
-# Testing dependencies (if any)
-
-[[example]]
-name = "basic_usage"
-path = "examples/basic_usage.rs"
 ```
 
 ### book.toml

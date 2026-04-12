@@ -108,17 +108,17 @@ pub mod streaming;
 pub mod topology;
 
 pub use aref_expansion::*;
-pub use boolean_ops::{boolean, convex_hull, offset, slice, Axis, BooleanOp};
-pub use curve::{ellipse, regular_polygon, rounded_rectangle, spiral, star, Curve};
+pub use boolean_ops::{Axis, BooleanOp, boolean, convex_hull, offset, slice};
+pub use curve::{Curve, ellipse, regular_polygon, rounded_rectangle, spiral, star};
 pub use flexpath::{EndCap, FlexPath, Join, RobustPath};
 pub use gdsii::*;
 pub use geometry::{
-    affine_transform, bounding_box, bounding_box_i32, close_polygon, distance, ensure_clockwise,
-    ensure_counter_clockwise, fillet, fracture_to_rectangles, gds_element_bounding_box, inside,
-    is_counter_clockwise, library_bounding_box, mirror_x, mirror_y, oasis_element_bounding_box,
-    point_in_any_polygon, point_in_polygon, polygon_area, polygon_centroid, polygon_perimeter,
-    polygon_signed_area, remove_duplicates, rotate, scale, structure_bounding_box, translate,
-    BoundingBox,
+    BoundingBox, affine_transform, bounding_box, bounding_box_i32, close_polygon, distance,
+    ensure_clockwise, ensure_counter_clockwise, fillet, fracture_to_rectangles,
+    gds_element_bounding_box, inside, is_counter_clockwise, library_bounding_box, mirror_x,
+    mirror_y, oasis_element_bounding_box, point_in_any_polygon, point_in_polygon, polygon_area,
+    polygon_centroid, polygon_perimeter, polygon_signed_area, remove_duplicates, rotate, scale,
+    structure_bounding_box, translate,
 };
 pub use oasis::*;
 pub use properties::*;

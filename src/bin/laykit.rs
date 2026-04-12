@@ -1,8 +1,8 @@
 // LayKit CLI Tool
 // Command-line interface for GDSII and OASIS file operations
 
-use laykit::format_detection::{detect_format_from_file, FileFormat};
-use laykit::{converter, GDSIIFile, OASISFile};
+use laykit::format_detection::{FileFormat, detect_format_from_file};
+use laykit::{GDSIIFile, OASISFile, converter};
 use std::env;
 use std::fs;
 use std::path::Path;

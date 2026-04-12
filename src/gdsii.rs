@@ -540,10 +540,10 @@ impl GDSIIFile {
                         Building::None => None,
                     };
 
-                    if let Some(elem) = new_element {
-                        if let Some(ref mut structure) = current_structure {
-                            structure.elements.push(elem);
-                        }
+                    if let (Some(elem), Some(ref mut structure)) =
+                        (new_element, current_structure.as_mut())
+                    {
+                        structure.elements.push(elem);
                     }
 
                     // Reset state
@@ -718,8 +718,13 @@ impl GDSIIFile {
         }
 
         // GENERATIONS - Backup generations
-        if let Some(gen) = self.generations {
-            Self::write_record(writer, 0x3C, DataType::TwoByteSignedInt, &gen.to_be_bytes())?;
+        if let Some(generations) = self.generations {
+            Self::write_record(
+                writer,
+                0x3C,
+                DataType::TwoByteSignedInt,
+                &generations.to_be_bytes(),
+            )?;
         }
 
         // ATTRTABLE - Attribute table reference

@@ -2,6 +2,7 @@
 
 A production-ready Rust library for reading, writing, and manipulating GDSII and OASIS IC layout files.
 
+[![crates.io](https://img.shields.io/crates/v/laykit.svg)](https://crates.io/crates/laykit)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)](#testing)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-blue.svg)](#)
@@ -11,9 +12,15 @@ A production-ready Rust library for reading, writing, and manipulating GDSII and
 
 ## Installation
 
+```bash
+cargo add laykit
+```
+
+Or add to `Cargo.toml` manually (see badge above for the latest version):
+
 ```toml
 [dependencies]
-laykit = "0.0.2"
+laykit = "0"
 ```
 
 ## Quick Start

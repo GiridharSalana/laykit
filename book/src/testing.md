@@ -22,7 +22,7 @@ cargo test topology
 cargo test --doc
 ```
 
-## Test Counts (v0.0.1)
+## Test Counts
 
 | Suite | Tests |
 |-------|-------|

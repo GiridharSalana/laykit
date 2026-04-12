@@ -98,11 +98,11 @@ pub fn dependency_order(library: &GDSIIFile) -> Vec<usize> {
 
     for (i, structure) in library.structures.iter().enumerate() {
         for dep_name in direct_references(structure) {
-            if let Some(&j) = name_to_idx.get(dep_name.as_str()) {
-                if i != j {
-                    adj[j].push(i); // j is needed by i, so j goes first
-                    in_degree[i] += 1;
-                }
+            if let Some(&j) = name_to_idx.get(dep_name.as_str())
+                && i != j
+            {
+                adj[j].push(i); // j is needed by i, so j goes first
+                in_degree[i] += 1;
             }
         }
     }

@@ -335,19 +335,19 @@ impl OASISFile {
                     oasis.cells.push(cell);
                 }
                 14 => { // XYAbsolute
-                     // Coordinate mode - no data, just skip
+                    // Coordinate mode - no data, just skip
                 }
                 15 => { // XYRelative
-                     // Coordinate mode - no data, just skip
+                    // Coordinate mode - no data, just skip
                 }
                 19 => { // RECTANGLE
-                     // Handled within cell context
+                    // Handled within cell context
                 }
                 20 => { // POLYGON
-                     // Handled within cell context
+                    // Handled within cell context
                 }
                 21 => { // PATH
-                     // Handled within cell context
+                    // Handled within cell context
                 }
                 _ => {
                     // Skip unknown records
