@@ -71,3 +71,9 @@ cargo test
 ## License
 
 MIT
+
+---
+
+## Credits
+
+The test suite for this library was developed with reference to [gdstk](https://github.com/heitzmann/gdstk) by Lucas Heitzmann Gabrielli, an excellent Python library for GDSII and OASIS IC layout. gdstk served as the behavioral reference for verifying correctness of geometry, boolean operations, path generation, and format I/O. It is licensed under the [Boost Software License 1.0](https://github.com/heitzmann/gdstk/blob/main/LICENSE).
