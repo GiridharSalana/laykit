@@ -1,10 +1,11 @@
 # laykit
 
-A Rust implementation of [gdstk](https://github.com/heitzmann/gdstk) — a library for reading, writing, and manipulating GDSII and OASIS IC layout files.
+A production-ready Rust library for reading, writing, and manipulating GDSII and OASIS IC layout files.
 
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)](#testing)
 [![Zero Dependencies](https://img.shields.io/badge/dependencies-0-blue.svg)](#)
+[![Docs](https://img.shields.io/badge/docs-giridharsalana.github.io%2Flaykit-blue.svg)](https://giridharsalana.github.io/laykit)
 
 ---
 
@@ -53,6 +54,11 @@ oasis.write_to_file("output.oas")?;
 | `aref_expansion` | Array reference expansion |
 | `properties` | Property builders and managers |
 | `format_detection` | File format detection by magic bytes |
+
+## Documentation
+
+- **Book**: [giridharsalana.github.io/laykit](https://giridharsalana.github.io/laykit)
+- **API reference**: [giridharsalana.github.io/laykit/api](https://giridharsalana.github.io/laykit/api)
 
 ## Testing
 

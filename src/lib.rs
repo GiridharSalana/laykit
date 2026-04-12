@@ -1,7 +1,7 @@
-//! # laykit - GDSII and OASIS File Format Library
+//! # laykit
 //!
-//! A production-ready Rust library for reading, writing, and converting between
-//! GDSII and OASIS file formats used in integrated circuit layout design.
+//! A production-ready Rust library for reading, writing, and manipulating
+//! GDSII and OASIS IC layout files.
 //!
 //! ## Features
 //!
