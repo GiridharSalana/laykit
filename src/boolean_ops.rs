@@ -2,7 +2,7 @@
 // Implements Sutherland-Hodgman clipping and general polygon boolean operations
 // Mirrors the boolean operation API of gdstk
 
-use crate::geometry::{polygon_signed_area, point_in_polygon};
+use crate::geometry::{point_in_polygon, polygon_signed_area};
 
 /// Boolean operation type
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -40,9 +40,8 @@ fn sh_clip_polygon_by_half_plane(
     }
 
     // Compute signed distance: positive = inside (left of the directed edge a->b)
-    let edge_sign = |p: (f64, f64)| -> f64 {
-        (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0)
-    };
+    let edge_sign =
+        |p: (f64, f64)| -> f64 { (b.0 - a.0) * (p.1 - a.1) - (b.1 - a.1) * (p.0 - a.0) };
 
     let line_intersect = |p: (f64, f64), q: (f64, f64)| -> (f64, f64) {
         let d1 = edge_sign(p);
@@ -127,10 +126,8 @@ pub fn polygon_union(a: &[(f64, f64)], b: &[(f64, f64)]) -> Vec<Vec<(f64, f64)>>
     }
 
     // Check if one polygon contains the other
-    let a_in_b = polygon_signed_area(a).abs() > 0.0
-        && a.iter().all(|&pt| point_in_polygon(pt, b));
-    let b_in_a = polygon_signed_area(b).abs() > 0.0
-        && b.iter().all(|&pt| point_in_polygon(pt, a));
+    let a_in_b = polygon_signed_area(a).abs() > 0.0 && a.iter().all(|&pt| point_in_polygon(pt, b));
+    let b_in_a = polygon_signed_area(b).abs() > 0.0 && b.iter().all(|&pt| point_in_polygon(pt, a));
 
     if a_in_b {
         return vec![b.to_vec()];
@@ -341,12 +338,11 @@ fn slice_polygon(
 /// Offset (expand or shrink) polygons by a given distance.
 /// Positive distance = expand, negative = shrink.
 /// Uses vertex offsetting along inward normals.
-pub fn offset(
-    polygons: &[Vec<(f64, f64)>],
-    distance: f64,
-    tolerance: f64,
-) -> Vec<Vec<(f64, f64)>> {
-    polygons.iter().filter_map(|poly| offset_polygon(poly, distance, tolerance)).collect()
+pub fn offset(polygons: &[Vec<(f64, f64)>], distance: f64, tolerance: f64) -> Vec<Vec<(f64, f64)>> {
+    polygons
+        .iter()
+        .filter_map(|poly| offset_polygon(poly, distance, tolerance))
+        .collect()
 }
 
 fn offset_polygon(
@@ -401,11 +397,18 @@ fn offset_polygon(
         } else {
             // Project outward distance onto miter direction
             let dot = n1.0 * miter.0 / miter_len + n1.1 * miter.1 / miter_len;
-            let scale = if dot.abs() < 1e-10 { distance } else { distance / dot };
+            let scale = if dot.abs() < 1e-10 {
+                distance
+            } else {
+                distance / dot
+            };
             // Clamp miter to avoid extremely long spikes (miter limit of 4x distance)
             let clamp_limit = distance.abs() * 4.0;
             let clamped_scale = scale.clamp(-clamp_limit, clamp_limit);
-            (curr.0 + miter.0 / miter_len * clamped_scale, curr.1 + miter.1 / miter_len * clamped_scale)
+            (
+                curr.0 + miter.0 / miter_len * clamped_scale,
+                curr.1 + miter.1 / miter_len * clamped_scale,
+            )
         };
 
         result.push(offset_pt);
@@ -710,7 +713,12 @@ mod tests {
             }
             (a / 2.0).abs()
         };
-        assert!(expanded_area > original_area, "Expanded area {} should be > {}", expanded_area, original_area);
+        assert!(
+            expanded_area > original_area,
+            "Expanded area {} should be > {}",
+            expanded_area,
+            original_area
+        );
     }
 
     #[test]
@@ -723,7 +731,10 @@ mod tests {
     #[test]
     fn test_convex_hull() {
         let pts = vec![
-            (0.0, 0.0), (5.0, 0.0), (5.0, 5.0), (0.0, 5.0),
+            (0.0, 0.0),
+            (5.0, 0.0),
+            (5.0, 5.0),
+            (0.0, 5.0),
             (2.5, 2.5), // interior point
         ];
         let hull = convex_hull(&pts);
@@ -758,8 +769,15 @@ mod tests {
         let b = rect(2.0, 2.0, 4.0, 4.0);
         let result = polygon_intersection(&a, &b);
         assert!(!result.is_empty());
-        let inter_area: f64 = result.iter().map(|p| crate::geometry::polygon_area(p)).sum();
-        assert!((inter_area - 4.0).abs() < 0.5, "Expected area ~4, got {}", inter_area);
+        let inter_area: f64 = result
+            .iter()
+            .map(|p| crate::geometry::polygon_area(p))
+            .sum();
+        assert!(
+            (inter_area - 4.0).abs() < 0.5,
+            "Expected area ~4, got {}",
+            inter_area
+        );
     }
 
     #[test]

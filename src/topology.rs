@@ -2,14 +2,13 @@
 // Provides cell flattening, dependency ordering, hierarchy validation
 // Mirrors the cell hierarchy API of gdstk
 
-use std::collections::{HashMap, HashSet, VecDeque};
-use crate::gdsii::{
-    ArrayRef, Boundary, GDSElement, GDSIIFile, GDSStructure, GPath, GText, GDSBox,
-    Node, StructRef,
-};
 #[cfg(test)]
 use crate::gdsii::GDSTime;
+use crate::gdsii::{
+    ArrayRef, Boundary, GDSBox, GDSElement, GDSIIFile, GDSStructure, GPath, GText, Node, StructRef,
+};
 use crate::geometry::affine_transform;
+use std::collections::{HashMap, HashSet, VecDeque};
 
 // ============================================================================
 // Cell reference analysis
@@ -263,7 +262,10 @@ fn flatten_elements(
                         flatten_elements(
                             &sub.elements,
                             cell_map,
-                            t, r, m, xr,
+                            t,
+                            r,
+                            m,
+                            xr,
                             depth + 1,
                             max_depth,
                             output,
@@ -271,7 +273,11 @@ fn flatten_elements(
                     }
                 } else {
                     output.push(GDSElement::StructRef(transform_sref(
-                        sref, translation, rotation, magnification, x_reflection,
+                        sref,
+                        translation,
+                        rotation,
+                        magnification,
+                        x_reflection,
                     )));
                 }
             }
@@ -279,13 +285,20 @@ fn flatten_elements(
                 if depth < max_depth {
                     if let Some(&sub) = cell_map.get(aref.sname.as_str()) {
                         let instances = expand_aref_with_transform(
-                            aref, translation, rotation, magnification, x_reflection,
+                            aref,
+                            translation,
+                            rotation,
+                            magnification,
+                            x_reflection,
                         );
                         for (t, r, m, xr) in instances {
                             flatten_elements(
                                 &sub.elements,
                                 cell_map,
-                                t, r, m, xr,
+                                t,
+                                r,
+                                m,
+                                xr,
                                 depth + 1,
                                 max_depth,
                                 output,
@@ -297,7 +310,8 @@ fn flatten_elements(
                 }
             }
             other => {
-                let transformed = transform_element(other, translation, rotation, magnification, x_reflection);
+                let transformed =
+                    transform_element(other, translation, rotation, magnification, x_reflection);
                 output.push(transformed);
             }
         }
@@ -311,8 +325,17 @@ fn compose_transform(
     parent_xr: bool,
     sref: &StructRef,
 ) -> ((f64, f64), f64, f64, bool) {
-    let child_m = sref.strans.as_ref().and_then(|s| s.magnification).unwrap_or(1.0);
-    let child_r = sref.strans.as_ref().and_then(|s| s.angle).unwrap_or(0.0).to_radians();
+    let child_m = sref
+        .strans
+        .as_ref()
+        .and_then(|s| s.magnification)
+        .unwrap_or(1.0);
+    let child_r = sref
+        .strans
+        .as_ref()
+        .and_then(|s| s.angle)
+        .unwrap_or(0.0)
+        .to_radians();
     let child_xr = sref.strans.as_ref().map(|s| s.reflection).unwrap_or(false);
 
     let child_pos = affine_transform(
@@ -324,7 +347,11 @@ fn compose_transform(
     )[0];
 
     let combined_xr = parent_xr ^ child_xr;
-    let combined_r = if parent_xr { parent_r - child_r } else { parent_r + child_r };
+    let combined_r = if parent_xr {
+        parent_r - child_r
+    } else {
+        parent_r + child_r
+    };
     let combined_m = parent_m * child_m;
 
     (child_pos, combined_r, combined_m, combined_xr)
@@ -341,12 +368,25 @@ fn expand_aref_with_transform(
         return Vec::new();
     }
 
-    let child_m = aref.strans.as_ref().and_then(|s| s.magnification).unwrap_or(1.0);
-    let child_r = aref.strans.as_ref().and_then(|s| s.angle).unwrap_or(0.0).to_radians();
+    let child_m = aref
+        .strans
+        .as_ref()
+        .and_then(|s| s.magnification)
+        .unwrap_or(1.0);
+    let child_r = aref
+        .strans
+        .as_ref()
+        .and_then(|s| s.angle)
+        .unwrap_or(0.0)
+        .to_radians();
     let child_xr = aref.strans.as_ref().map(|s| s.reflection).unwrap_or(false);
 
     let combined_xr = x_reflection ^ child_xr;
-    let combined_r = if x_reflection { rotation - child_r } else { rotation + child_r };
+    let combined_r = if x_reflection {
+        rotation - child_r
+    } else {
+        rotation + child_r
+    };
     let combined_m = magnification * child_m;
 
     let origin = (aref.xy[0].0 as f64, aref.xy[0].1 as f64);
@@ -356,10 +396,26 @@ fn expand_aref_with_transform(
     let cols = aref.columns as i32;
     let rows = aref.rows as i32;
 
-    let col_dx = if cols > 0 { (col_end.0 - origin.0) / cols as f64 } else { 0.0 };
-    let col_dy = if cols > 0 { (col_end.1 - origin.1) / cols as f64 } else { 0.0 };
-    let row_dx = if rows > 0 { (row_end.0 - origin.0) / rows as f64 } else { 0.0 };
-    let row_dy = if rows > 0 { (row_end.1 - origin.1) / rows as f64 } else { 0.0 };
+    let col_dx = if cols > 0 {
+        (col_end.0 - origin.0) / cols as f64
+    } else {
+        0.0
+    };
+    let col_dy = if cols > 0 {
+        (col_end.1 - origin.1) / cols as f64
+    } else {
+        0.0
+    };
+    let row_dx = if rows > 0 {
+        (row_end.0 - origin.0) / rows as f64
+    } else {
+        0.0
+    };
+    let row_dy = if rows > 0 {
+        (row_end.1 - origin.1) / rows as f64
+    } else {
+        0.0
+    };
 
     let mut instances = Vec::new();
     for row in 0..rows {
@@ -415,13 +471,18 @@ fn transform_element(
     let transform_pts = |pts: &[(i32, i32)]| -> Vec<(i32, i32)> {
         let fpts: Vec<(f64, f64)> = pts.iter().map(|&(x, y)| (x as f64, y as f64)).collect();
         let tpts = affine_transform(&fpts, translation, rotation, magnification, x_reflection);
-        tpts.iter().map(|&(x, y)| (x.round() as i32, y.round() as i32)).collect()
+        tpts.iter()
+            .map(|&(x, y)| (x.round() as i32, y.round() as i32))
+            .collect()
     };
 
     let transform_pt = |pt: (i32, i32)| -> (i32, i32) {
         let t = affine_transform(
             &[(pt.0 as f64, pt.1 as f64)],
-            translation, rotation, magnification, x_reflection,
+            translation,
+            rotation,
+            magnification,
+            x_reflection,
         )[0];
         (t.0.round() as i32, t.1.round() as i32)
     };
@@ -505,7 +566,11 @@ pub fn merge_library(target: &mut GDSIIFile, source: &GDSIIFile) -> usize {
 pub fn merge_library_overwrite(target: &mut GDSIIFile, source: &GDSIIFile) -> usize {
     let mut replaced = 0;
     for source_struct in &source.structures {
-        if let Some(existing) = target.structures.iter_mut().find(|s| s.name == source_struct.name) {
+        if let Some(existing) = target
+            .structures
+            .iter_mut()
+            .find(|s| s.name == source_struct.name)
+        {
             *existing = source_struct.clone();
             replaced += 1;
         } else {
@@ -521,7 +586,11 @@ pub fn merge_library_overwrite(target: &mut GDSIIFile, source: &GDSIIFile) -> us
 
 /// Filter elements in a structure by layer
 pub fn filter_by_layer(structure: &GDSStructure, layer: i16) -> Vec<&GDSElement> {
-    structure.elements.iter().filter(|e| element_layer(e) == Some(layer)).collect()
+    structure
+        .elements
+        .iter()
+        .filter(|e| element_layer(e) == Some(layer))
+        .collect()
 }
 
 /// Get the layer of a GDSII element (None for elements without a layer)
@@ -587,7 +656,9 @@ mod tests {
                 layer: 1,
                 datatype: 0,
                 xy: vec![(0, 0), (10, 0), (10, 10), (0, 10), (0, 0)],
-                elflags: None, plex: None, properties: Vec::new(),
+                elflags: None,
+                plex: None,
+                properties: Vec::new(),
             })],
         };
 
@@ -600,7 +671,9 @@ mod tests {
                 sname: "LEAF".to_string(),
                 xy: (100, 200),
                 strans: None,
-                elflags: None, plex: None, properties: Vec::new(),
+                elflags: None,
+                plex: None,
+                properties: Vec::new(),
             })],
         };
 
@@ -613,7 +686,9 @@ mod tests {
                 sname: "MID".to_string(),
                 xy: (0, 0),
                 strans: None,
-                elflags: None, plex: None, properties: Vec::new(),
+                elflags: None,
+                plex: None,
+                properties: Vec::new(),
             })],
         };
 
@@ -644,9 +719,18 @@ mod tests {
         let order = dependency_order(&lib);
         assert_eq!(order.len(), 3);
         // LEAF should come before MID, MID before TOP
-        let leaf_pos = order.iter().position(|&i| lib.structures[i].name == "LEAF").unwrap();
-        let mid_pos = order.iter().position(|&i| lib.structures[i].name == "MID").unwrap();
-        let top_pos = order.iter().position(|&i| lib.structures[i].name == "TOP").unwrap();
+        let leaf_pos = order
+            .iter()
+            .position(|&i| lib.structures[i].name == "LEAF")
+            .unwrap();
+        let mid_pos = order
+            .iter()
+            .position(|&i| lib.structures[i].name == "MID")
+            .unwrap();
+        let top_pos = order
+            .iter()
+            .position(|&i| lib.structures[i].name == "TOP")
+            .unwrap();
         assert!(leaf_pos < mid_pos);
         assert!(mid_pos < top_pos);
     }
@@ -669,7 +753,9 @@ mod tests {
                 sname: "NONEXISTENT".to_string(),
                 xy: (0, 0),
                 strans: None,
-                elflags: None, plex: None, properties: Vec::new(),
+                elflags: None,
+                plex: None,
+                properties: Vec::new(),
             })],
         });
         let result = validate_hierarchy(&lib);
@@ -685,10 +771,22 @@ mod tests {
         let flat = flatten_structure(top, &lib, None);
 
         // Flattened should have a Boundary from the leaf (not a StructRef)
-        let has_boundary = flat.elements.iter().any(|e| matches!(e, GDSElement::Boundary(_)));
-        let has_sref = flat.elements.iter().any(|e| matches!(e, GDSElement::StructRef(_)));
-        assert!(has_boundary, "Flattened structure should contain Boundary elements");
-        assert!(!has_sref, "Flattened structure should not contain StructRef elements");
+        let has_boundary = flat
+            .elements
+            .iter()
+            .any(|e| matches!(e, GDSElement::Boundary(_)));
+        let has_sref = flat
+            .elements
+            .iter()
+            .any(|e| matches!(e, GDSElement::StructRef(_)));
+        assert!(
+            has_boundary,
+            "Flattened structure should contain Boundary elements"
+        );
+        assert!(
+            !has_sref,
+            "Flattened structure should not contain StructRef elements"
+        );
     }
 
     #[test]
@@ -711,8 +809,14 @@ mod tests {
         // Only flatten 1 level deep: TOP → MID (not MID → LEAF)
         let flat = flatten_structure(top, &lib, Some(1));
         // Should have flattened MID but not LEAF
-        let has_sref = flat.elements.iter().any(|e| matches!(e, GDSElement::StructRef(_)));
-        assert!(has_sref, "With max_depth=1, should still have StructRefs for deeper cells");
+        let has_sref = flat
+            .elements
+            .iter()
+            .any(|e| matches!(e, GDSElement::StructRef(_)));
+        assert!(
+            has_sref,
+            "With max_depth=1, should still have StructRefs for deeper cells"
+        );
     }
 
     #[test]
@@ -798,7 +902,9 @@ mod tests {
                 layer: 1,
                 datatype: 0,
                 xy: vec![(0, 0), (5, 0), (5, 5), (0, 5), (0, 0)],
-                elflags: None, plex: None, properties: Vec::new(),
+                elflags: None,
+                plex: None,
+                properties: Vec::new(),
             })],
         };
 
@@ -813,7 +919,9 @@ mod tests {
                 rows: 2,
                 xy: vec![(0, 0), (20, 0), (0, 20)],
                 strans: None,
-                elflags: None, plex: None, properties: Vec::new(),
+                elflags: None,
+                plex: None,
+                properties: Vec::new(),
             })],
         };
 
@@ -822,7 +930,15 @@ mod tests {
 
         let flat = flatten_structure(&lib.structures[1], &lib, None);
         // 2×2 array = 4 instances of UNIT, each with 1 Boundary = 4 boundaries
-        let boundary_count = flat.elements.iter().filter(|e| matches!(e, GDSElement::Boundary(_))).count();
-        assert_eq!(boundary_count, 4, "Expected 4 boundaries from 2x2 array, got {}", boundary_count);
+        let boundary_count = flat
+            .elements
+            .iter()
+            .filter(|e| matches!(e, GDSElement::Boundary(_)))
+            .count();
+        assert_eq!(
+            boundary_count, 4,
+            "Expected 4 boundaries from 2x2 array, got {}",
+            boundary_count
+        );
     }
 }

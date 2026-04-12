@@ -55,14 +55,16 @@ impl Curve {
         }
 
         let start_angle = (-center_offset.1).atan2(-center_offset.0);
-        let num_pts = ((angle.abs() / (2.0 * (self.tolerance / radius).acos().max(1e-6))).ceil() as usize)
+        let num_pts = ((angle.abs() / (2.0 * (self.tolerance / radius).acos().max(1e-6))).ceil()
+            as usize)
             .max(2)
             .min(2000);
 
         for i in 1..=num_pts {
             let t = i as f64 / num_pts as f64;
             let a = start_angle + t * angle;
-            self.points.push((center.0 + radius * a.cos(), center.1 + radius * a.sin()));
+            self.points
+                .push((center.0 + radius * a.cos(), center.1 + radius * a.sin()));
         }
         self
     }
@@ -74,7 +76,8 @@ impl Curve {
         }
 
         let sweep = final_angle - initial_angle;
-        let num_pts = ((sweep.abs() / (2.0 * (self.tolerance / radius).acos().max(1e-6))).ceil() as usize)
+        let num_pts = ((sweep.abs() / (2.0 * (self.tolerance / radius).acos().max(1e-6))).ceil()
+            as usize)
             .max(2)
             .min(2000);
 
@@ -87,7 +90,8 @@ impl Curve {
         for i in 1..=num_pts {
             let t = i as f64 / num_pts as f64;
             let a = initial_angle + t * sweep;
-            self.points.push((center.0 + radius * a.cos(), center.1 + radius * a.sin()));
+            self.points
+                .push((center.0 + radius * a.cos(), center.1 + radius * a.sin()));
         }
         self
     }
@@ -102,7 +106,10 @@ impl Curve {
     ) -> &mut Self {
         let start = *self.points.last().unwrap();
         let (ctrl, end) = if relative {
-            ((start.0 + ctrl.0, start.1 + ctrl.1), (start.0 + end.0, start.1 + end.1))
+            (
+                (start.0 + ctrl.0, start.1 + ctrl.1),
+                (start.0 + end.0, start.1 + end.1),
+            )
         } else {
             (ctrl, end)
         };
@@ -192,10 +199,12 @@ impl Curve {
         num_points: usize,
     ) -> &mut Self {
         let last = *self.points.last().unwrap();
-        let center_x = last.0 - rx * (rotation.cos() * initial_angle.cos()
-            - ry / rx * rotation.sin() * initial_angle.sin());
-        let center_y = last.1 - rx * (rotation.sin() * initial_angle.cos()
-            + ry / rx * rotation.cos() * initial_angle.sin());
+        let center_x = last.0
+            - rx * (rotation.cos() * initial_angle.cos()
+                - ry / rx * rotation.sin() * initial_angle.sin());
+        let center_y = last.1
+            - rx * (rotation.sin() * initial_angle.cos()
+                + ry / rx * rotation.cos() * initial_angle.sin());
 
         let sweep = final_angle - initial_angle;
         let n = num_points.max(2).min(2000);
@@ -235,7 +244,11 @@ impl Curve {
             let p0 = if i > 0 { all_pts[i - 1] } else { all_pts[i] };
             let p1 = all_pts[i];
             let p2 = all_pts[i + 1];
-            let p3 = if i + 2 < n { all_pts[i + 2] } else { all_pts[i + 1] };
+            let p3 = if i + 2 < n {
+                all_pts[i + 2]
+            } else {
+                all_pts[i + 1]
+            };
 
             let m1 = (
                 (1.0 - tension) * (p2.0 - p0.0) / 2.0,
@@ -313,7 +326,10 @@ pub fn regular_polygon(
     let mut pts = Vec::with_capacity(sides + 1);
     for i in 0..=sides {
         let angle = initial_angle + 2.0 * PI * i as f64 / sides as f64;
-        pts.push((center.0 + radius * angle.cos(), center.1 + radius * angle.sin()));
+        pts.push((
+            center.0 + radius * angle.cos(),
+            center.1 + radius * angle.sin(),
+        ));
     }
     pts
 }
@@ -329,9 +345,13 @@ pub fn ellipse(
     num_points: Option<usize>,
 ) -> Vec<(f64, f64)> {
     let r_max = rx.max(ry);
-    let n = num_points.unwrap_or_else(|| {
-        ((final_angle - initial_angle).abs() / (2.0 * (tolerance / r_max).acos().max(1e-6))).ceil() as usize
-    }).max(3).min(10000);
+    let n = num_points
+        .unwrap_or_else(|| {
+            ((final_angle - initial_angle).abs() / (2.0 * (tolerance / r_max).acos().max(1e-6)))
+                .ceil() as usize
+        })
+        .max(3)
+        .min(10000);
 
     let sweep = final_angle - initial_angle;
     let mut pts = Vec::with_capacity(n + 1);
@@ -401,7 +421,11 @@ pub fn star(
     let mut pts = Vec::with_capacity(total + 1);
     for i in 0..=total {
         let angle = initial_angle + PI * i as f64 / points as f64;
-        let r = if i % 2 == 0 { outer_radius } else { inner_radius };
+        let r = if i % 2 == 0 {
+            outer_radius
+        } else {
+            inner_radius
+        };
         pts.push((center.0 + r * angle.cos(), center.1 + r * angle.sin()));
     }
     pts
@@ -516,7 +540,7 @@ mod tests {
     fn test_regular_polygon() {
         let hex = regular_polygon((0.0, 0.0), 1.0, 6, 0.0);
         assert_eq!(hex.len(), 7); // 6 sides + closing point
-        // All vertices should be at distance 1 from center
+                                  // All vertices should be at distance 1 from center
         for &(x, y) in &hex[..6] {
             let d = (x * x + y * y).sqrt();
             assert!((d - 1.0).abs() < 1e-10, "Distance should be 1, got {}", d);
@@ -538,7 +562,7 @@ mod tests {
     fn test_rounded_rectangle() {
         let rr = rounded_rectangle(0.0, 0.0, 10.0, 5.0, 1.0, 4);
         assert!(rr.len() > 4); // More points than plain rectangle
-        // All points should be within the rectangle bounds
+                               // All points should be within the rectangle bounds
         for &(x, y) in &rr {
             assert!(x >= -0.01 && x <= 10.01, "x={} out of bounds", x);
             assert!(y >= -0.01 && y <= 5.01, "y={} out of bounds", y);
@@ -558,7 +582,11 @@ mod tests {
         // First point should be at radius ≈ 1
         let (x, y) = s[0];
         let r = (x * x + y * y).sqrt();
-        assert!((r - 1.0).abs() < 0.5, "First radius should be ~1, got {}", r);
+        assert!(
+            (r - 1.0).abs() < 0.5,
+            "First radius should be ~1, got {}",
+            r
+        );
     }
 
     #[test]

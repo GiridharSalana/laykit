@@ -17,7 +17,12 @@ pub struct BoundingBox {
 impl BoundingBox {
     /// Create a new bounding box
     pub fn new(x_min: f64, y_min: f64, x_max: f64, y_max: f64) -> Self {
-        BoundingBox { x_min, y_min, x_max, y_max }
+        BoundingBox {
+            x_min,
+            y_min,
+            x_max,
+            y_max,
+        }
     }
 
     /// Bounding box width
@@ -37,7 +42,10 @@ impl BoundingBox {
 
     /// Center of the bounding box
     pub fn center(&self) -> (f64, f64) {
-        ((self.x_min + self.x_max) / 2.0, (self.y_min + self.y_max) / 2.0)
+        (
+            (self.x_min + self.x_max) / 2.0,
+            (self.y_min + self.y_max) / 2.0,
+        )
     }
 
     /// Compute the union of two bounding boxes
@@ -57,7 +65,12 @@ impl BoundingBox {
         let x_max = self.x_max.min(other.x_max);
         let y_max = self.y_max.min(other.y_max);
         if x_min <= x_max && y_min <= y_max {
-            Some(BoundingBox { x_min, y_min, x_max, y_max })
+            Some(BoundingBox {
+                x_min,
+                y_min,
+                x_max,
+                y_max,
+            })
         } else {
             None
         }
@@ -98,7 +111,12 @@ impl BoundingBox {
             x_max = x_max.max(x);
             y_max = y_max.max(y);
         }
-        Some(BoundingBox { x_min, y_min, x_max, y_max })
+        Some(BoundingBox {
+            x_min,
+            y_min,
+            x_max,
+            y_max,
+        })
     }
 
     /// Convert to polygon (4 corners, closed)
@@ -207,10 +225,16 @@ pub fn gds_element_bounding_box(element: &GDSElement) -> Option<BoundingBox> {
             Some(bb.expand(half_w))
         }
         GDSElement::Text(t) => Some(BoundingBox::new(
-            t.xy.0 as f64, t.xy.1 as f64, t.xy.0 as f64, t.xy.1 as f64,
+            t.xy.0 as f64,
+            t.xy.1 as f64,
+            t.xy.0 as f64,
+            t.xy.1 as f64,
         )),
         GDSElement::StructRef(s) => Some(BoundingBox::new(
-            s.xy.0 as f64, s.xy.1 as f64, s.xy.0 as f64, s.xy.1 as f64,
+            s.xy.0 as f64,
+            s.xy.1 as f64,
+            s.xy.0 as f64,
+            s.xy.1 as f64,
         )),
         GDSElement::ArrayRef(a) => {
             if a.xy.len() >= 3 {
@@ -256,33 +280,45 @@ pub fn library_bounding_box(library: &GDSIIFile) -> Option<BoundingBox> {
 pub fn oasis_element_bounding_box(element: &OASISElement) -> Option<BoundingBox> {
     match element {
         OASISElement::Rectangle(r) => Some(BoundingBox::new(
-            r.x as f64, r.y as f64,
-            r.x as f64 + r.width as f64, r.y as f64 + r.height as f64,
+            r.x as f64,
+            r.y as f64,
+            r.x as f64 + r.width as f64,
+            r.y as f64 + r.height as f64,
         )),
         OASISElement::Polygon(p) => {
-            let pts: Vec<(f64, f64)> = p.points.iter()
+            let pts: Vec<(f64, f64)> = p
+                .points
+                .iter()
                 .map(|&(px, py)| (p.x as f64 + px as f64, p.y as f64 + py as f64))
                 .collect();
             bounding_box(&pts)
         }
         OASISElement::Path(p) => {
-            let pts: Vec<(f64, f64)> = p.points.iter()
+            let pts: Vec<(f64, f64)> = p
+                .points
+                .iter()
                 .map(|&(px, py)| (p.x as f64 + px as f64, p.y as f64 + py as f64))
                 .collect();
             let bb = bounding_box(&pts)?;
             Some(bb.expand(p.half_width as f64))
         }
         OASISElement::Trapezoid(t) => Some(BoundingBox::new(
-            t.x as f64, t.y as f64,
-            t.x as f64 + t.width as f64, t.y as f64 + t.height as f64,
+            t.x as f64,
+            t.y as f64,
+            t.x as f64 + t.width as f64,
+            t.y as f64 + t.height as f64,
         )),
         OASISElement::CTrapezoid(ct) => Some(BoundingBox::new(
-            ct.x as f64, ct.y as f64,
-            ct.x as f64 + ct.width as f64, ct.y as f64 + ct.height as f64,
+            ct.x as f64,
+            ct.y as f64,
+            ct.x as f64 + ct.width as f64,
+            ct.y as f64 + ct.height as f64,
         )),
         OASISElement::Circle(c) => Some(BoundingBox::new(
-            c.x as f64 - c.radius as f64, c.y as f64 - c.radius as f64,
-            c.x as f64 + c.radius as f64, c.y as f64 + c.radius as f64,
+            c.x as f64 - c.radius as f64,
+            c.y as f64 - c.radius as f64,
+            c.x as f64 + c.radius as f64,
+            c.y as f64 + c.radius as f64,
         )),
         OASISElement::Text(t) => Some(BoundingBox::new(
             t.x as f64, t.y as f64, t.x as f64, t.y as f64,
@@ -324,7 +360,10 @@ pub fn point_in_any_polygon(point: (f64, f64), polygons: &[Vec<(f64, f64)>]) -> 
 
 /// Test which of a set of points are inside a set of polygons
 pub fn inside(points: &[(f64, f64)], polygons: &[Vec<(f64, f64)>]) -> Vec<bool> {
-    points.iter().map(|&pt| point_in_any_polygon(pt, polygons)).collect()
+    points
+        .iter()
+        .map(|&pt| point_in_any_polygon(pt, polygons))
+        .collect()
 }
 
 // ============================================================================
@@ -340,18 +379,22 @@ pub fn translate(points: &[(f64, f64)], dx: f64, dy: f64) -> Vec<(f64, f64)> {
 pub fn rotate(points: &[(f64, f64)], angle: f64, cx: f64, cy: f64) -> Vec<(f64, f64)> {
     let cos_a = angle.cos();
     let sin_a = angle.sin();
-    points.iter().map(|&(x, y)| {
-        let dx = x - cx;
-        let dy = y - cy;
-        (cx + dx * cos_a - dy * sin_a, cy + dx * sin_a + dy * cos_a)
-    }).collect()
+    points
+        .iter()
+        .map(|&(x, y)| {
+            let dx = x - cx;
+            let dy = y - cy;
+            (cx + dx * cos_a - dy * sin_a, cy + dx * sin_a + dy * cos_a)
+        })
+        .collect()
 }
 
 /// Scale polygon points by (sx, sy) around center (cx, cy)
 pub fn scale(points: &[(f64, f64)], sx: f64, sy: f64, cx: f64, cy: f64) -> Vec<(f64, f64)> {
-    points.iter().map(|&(x, y)| {
-        (cx + (x - cx) * sx, cy + (y - cy) * sy)
-    }).collect()
+    points
+        .iter()
+        .map(|&(x, y)| (cx + (x - cx) * sx, cy + (y - cy) * sy))
+        .collect()
 }
 
 /// Mirror polygon points about a horizontal axis y = axis_y
@@ -374,16 +417,19 @@ pub fn affine_transform(
 ) -> Vec<(f64, f64)> {
     let cos_r = rotation.cos();
     let sin_r = rotation.sin();
-    points.iter().map(|&(x, y)| {
-        // Apply x-reflection first (flip x)
-        let (rx, ry) = if x_reflection { (-x, y) } else { (x, y) };
-        // Scale
-        let (sx, sy) = (rx * magnification, ry * magnification);
-        // Rotate
-        let tx = sx * cos_r - sy * sin_r + translation.0;
-        let ty = sx * sin_r + sy * cos_r + translation.1;
-        (tx, ty)
-    }).collect()
+    points
+        .iter()
+        .map(|&(x, y)| {
+            // Apply x-reflection first (flip x)
+            let (rx, ry) = if x_reflection { (-x, y) } else { (x, y) };
+            // Scale
+            let (sx, sy) = (rx * magnification, ry * magnification);
+            // Rotate
+            let tx = sx * cos_r - sy * sin_r + translation.0;
+            let ty = sx * sin_r + sy * cos_r + translation.1;
+            (tx, ty)
+        })
+        .collect()
 }
 
 // ============================================================================
@@ -587,7 +633,10 @@ pub fn fillet(points: &[(f64, f64)], radius: f64, points_per_arc: usize) -> Vec<
         for step in 0..=num_steps {
             let frac = step as f64 / num_steps as f64;
             let angle = a_start + frac * sweep;
-            result.push((center.0 + r_actual * angle.cos(), center.1 + r_actual * angle.sin()));
+            result.push((
+                center.0 + r_actual * angle.cos(),
+                center.1 + r_actual * angle.sin(),
+            ));
         }
     }
 
@@ -687,8 +736,12 @@ mod tests {
     fn test_point_in_polygon_concave() {
         // L-shape
         let l_shape = vec![
-            (0.0, 0.0), (10.0, 0.0), (10.0, 5.0),
-            (5.0, 5.0), (5.0, 10.0), (0.0, 10.0),
+            (0.0, 0.0),
+            (10.0, 0.0),
+            (10.0, 5.0),
+            (5.0, 5.0),
+            (5.0, 10.0),
+            (0.0, 10.0),
         ];
         assert!(point_in_polygon((2.0, 2.0), &l_shape));
         assert!(point_in_polygon((2.0, 7.0), &l_shape));
@@ -839,13 +892,17 @@ mod tests {
                     layer: 1,
                     datatype: 0,
                     xy: vec![(0, 0), (100, 0), (100, 100), (0, 100), (0, 0)],
-                    elflags: None, plex: None, properties: Vec::new(),
+                    elflags: None,
+                    plex: None,
+                    properties: Vec::new(),
                 }),
                 GDSElement::Boundary(Boundary {
                     layer: 2,
                     datatype: 0,
                     xy: vec![(-50, -50), (50, -50), (50, 50), (-50, 50), (-50, -50)],
-                    elflags: None, plex: None, properties: Vec::new(),
+                    elflags: None,
+                    plex: None,
+                    properties: Vec::new(),
                 }),
             ],
         };
@@ -895,9 +952,14 @@ mod tests {
     fn test_oasis_element_bounding_box_rectangle() {
         use crate::oasis::Rectangle;
         let rect = OASISElement::Rectangle(Rectangle {
-            layer: 1, datatype: 0,
-            x: 10, y: 20, width: 50, height: 30,
-            repetition: None, properties: Vec::new(),
+            layer: 1,
+            datatype: 0,
+            x: 10,
+            y: 20,
+            width: 50,
+            height: 30,
+            repetition: None,
+            properties: Vec::new(),
         });
         let bb = oasis_element_bounding_box(&rect).unwrap();
         assert_eq!(bb.x_min, 10.0);
@@ -910,9 +972,13 @@ mod tests {
     fn test_oasis_element_bounding_box_circle() {
         use crate::oasis::Circle;
         let circle = OASISElement::Circle(Circle {
-            layer: 1, datatype: 0,
-            x: 0, y: 0, radius: 10,
-            repetition: None, properties: Vec::new(),
+            layer: 1,
+            datatype: 0,
+            x: 0,
+            y: 0,
+            radius: 10,
+            repetition: None,
+            properties: Vec::new(),
         });
         let bb = oasis_element_bounding_box(&circle).unwrap();
         assert_eq!(bb.x_min, -10.0);

@@ -14,7 +14,7 @@
 //! - **AREF Expansion** - Array reference expansion utilities
 //! - **Zero Dependencies** - Pure Rust implementation using only `std`
 //! - **Memory Safe** - Leverages Rust's ownership system
- //! - **Production Ready** - Comprehensive test suite with 164 tests
+//! - **Production Ready** - Comprehensive test suite with 164 tests
 //!
 //! ## Quick Start
 //!
@@ -108,30 +108,23 @@ pub mod streaming;
 pub mod topology;
 
 pub use aref_expansion::*;
-pub use boolean_ops::{boolean, offset, slice, BooleanOp, Axis, convex_hull};
-pub use curve::{Curve, ellipse, regular_polygon, rounded_rectangle, star, spiral};
+pub use boolean_ops::{boolean, convex_hull, offset, slice, Axis, BooleanOp};
+pub use curve::{ellipse, regular_polygon, rounded_rectangle, spiral, star, Curve};
 pub use flexpath::{EndCap, FlexPath, Join, RobustPath};
 pub use gdsii::*;
 pub use geometry::{
+    affine_transform, bounding_box, bounding_box_i32, close_polygon, distance, ensure_clockwise,
+    ensure_counter_clockwise, fillet, fracture_to_rectangles, gds_element_bounding_box, inside,
+    is_counter_clockwise, library_bounding_box, mirror_x, mirror_y, oasis_element_bounding_box,
+    point_in_any_polygon, point_in_polygon, polygon_area, polygon_centroid, polygon_perimeter,
+    polygon_signed_area, remove_duplicates, rotate, scale, structure_bounding_box, translate,
     BoundingBox,
-    affine_transform, bounding_box, bounding_box_i32,
-    close_polygon,
-    distance, ensure_counter_clockwise, ensure_clockwise,
-    fillet, fracture_to_rectangles,
-    gds_element_bounding_box, library_bounding_box,
-    inside, is_counter_clockwise, mirror_x, mirror_y,
-    oasis_element_bounding_box,
-    point_in_polygon, point_in_any_polygon,
-    polygon_area, polygon_centroid, polygon_perimeter, polygon_signed_area,
-    remove_duplicates, rotate, scale, structure_bounding_box, translate,
 };
 pub use oasis::*;
 pub use properties::*;
 pub use streaming::*;
 pub use topology::{
-    cell_dependencies, dependency_order, detect_cycles, direct_references,
-    element_layer, filter_by_layer, flatten_structure,
-    layers_in_library, layers_in_structure,
-    merge_library, merge_library_overwrite,
-    top_level_cells, total_element_count, validate_hierarchy,
+    cell_dependencies, dependency_order, detect_cycles, direct_references, element_layer,
+    filter_by_layer, flatten_structure, layers_in_library, layers_in_structure, merge_library,
+    merge_library_overwrite, top_level_cells, total_element_count, validate_hierarchy,
 };

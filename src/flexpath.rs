@@ -1,7 +1,7 @@
 // FlexPath: Flexible path with configurable end caps and join types
 // Mirrors the FlexPath API of gdstk
 
-use crate::geometry::{BoundingBox, bounding_box};
+use crate::geometry::{bounding_box, BoundingBox};
 use std::f64::consts::PI;
 
 /// End cap style for the start and end of a path
@@ -241,17 +241,11 @@ impl FlexPath {
             EndCap::HalfWidth => {
                 let hw = self.widths[0] / 2.0;
                 let dir = self.segment_direction(0);
-                polygon.push((
-                    left_side[0].0 - dir.0 * hw,
-                    left_side[0].1 - dir.1 * hw,
-                ));
+                polygon.push((left_side[0].0 - dir.0 * hw, left_side[0].1 - dir.1 * hw));
             }
             EndCap::Extended(ext) => {
                 let dir = self.segment_direction(0);
-                polygon.push((
-                    left_side[0].0 - dir.0 * ext,
-                    left_side[0].1 - dir.1 * ext,
-                ));
+                polygon.push((left_side[0].0 - dir.0 * ext, left_side[0].1 - dir.1 * ext));
             }
             EndCap::Round => {
                 let center = self.points[0];
