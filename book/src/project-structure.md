@@ -40,7 +40,6 @@ laykit/
 ├── book.toml                   # mdBook configuration
 ├── Cargo.toml                  # Project manifest
 ├── Cargo.lock                  # Dependency lock file
-├── CHANGELOG.md                # Version history
 ├── LICENSE                     # MIT License
 ├── README.md                   # Project README
 └── .gitignore                  # Git ignore rules

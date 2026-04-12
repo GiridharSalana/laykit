@@ -234,7 +234,6 @@ Checklist:
 - ✅ `cargo clippy` passes
 - ✅ `cargo fmt` applied
 - ✅ Documentation updated
-- ✅ CHANGELOG updated (if applicable)
 - ✅ New tests added
 
 ### PR Description
@@ -258,7 +257,6 @@ How has this been tested?
 - [ ] Tests pass locally
 - [ ] Code follows project style
 - [ ] Documentation updated
-- [ ] CHANGELOG updated
 ```
 
 ### PR Review Process
@@ -322,10 +320,9 @@ Look for issues labeled:
 (For maintainers)
 
 1. Update version in `Cargo.toml`
-2. Update `CHANGELOG.md`
-3. Create git tag: `git tag v0.x.y`
-4. Push tag: `git push origin v0.x.y`
-5. CI builds and deploys automatically
+2. Create git tag: `git tag v0.x.y`
+3. Push tag: `git push origin v0.x.y`
+4. CI builds and deploys automatically
 
 ## Communication
 

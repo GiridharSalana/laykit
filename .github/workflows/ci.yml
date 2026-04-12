@@ -130,7 +130,7 @@ jobs:
             cp target/${{ matrix.target }}/release/examples/oasis_only artifacts/ 2>/dev/null || true
             cp target/${{ matrix.target }}/release/examples/basic_usage artifacts/ 2>/dev/null || true
           fi
-          cp README.md CHANGELOG.md LICENSE artifacts/
+          cp README.md LICENSE artifacts/
 
       - name: Create archive
         shell: bash
@@ -242,7 +242,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           name: ${{ steps.version.outputs.VERSION }}
-          body_path: CHANGELOG.md
           draft: false
           prerelease: false
           files: |
