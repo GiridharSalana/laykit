@@ -29,9 +29,9 @@ cargo test --doc
 | Unit tests (all modules) | 115 |
 | Integration tests | 41 |
 | Doc tests | 8 |
-| **Total** | **178** |
+| **Total** | *run `cargo test` locally* |
 
-All 178 pass (including doc tests). Zero failures. One dependency (`miniz_oxide` for OASIS CBLOCK).
+Run `cargo test` and `cargo test --doc` from the repository root for current counts. The release workflow runs the same checks when you push a version tag. One dependency (`miniz_oxide` for OASIS CBLOCK).
 
 ## Coverage by Module
 

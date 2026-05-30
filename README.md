@@ -3,10 +3,10 @@
 A production-ready Rust library for reading, writing, and manipulating GDSII and OASIS IC layout files.
 
 [![crates.io](https://img.shields.io/crates/v/laykit.svg)](https://crates.io/crates/laykit)
+[![docs.rs](https://docs.rs/laykit/badge.svg)](https://docs.rs/laykit/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-178%20passing-brightgreen.svg)](#testing)
-[![Dependencies](https://img.shields.io/badge/deps-miniz__oxide-blue.svg)](#installation)
-[![Docs](https://img.shields.io/badge/docs-giridharsalana.github.io%2Flaykit-blue.svg)](https://giridharsalana.github.io/laykit)
+
+The crates.io and docs.rs badges update automatically when you publish a new version — no manual version edits in this file are required.
 
 ---
 
@@ -16,7 +16,7 @@ A production-ready Rust library for reading, writing, and manipulating GDSII and
 cargo add laykit
 ```
 
-Or add to `Cargo.toml` manually (see badge above for the latest version):
+Or add to `Cargo.toml` manually (use the crates.io badge for the latest version):
 
 ```toml
 [dependencies]
@@ -75,7 +75,7 @@ oasis.write_to_file("output.oas")?;
 ## Documentation
 
 - **Book**: [giridharsalana.github.io/laykit](https://giridharsalana.github.io/laykit)
-- **API reference**: [giridharsalana.github.io/laykit/api](https://giridharsalana.github.io/laykit/api)
+- **API reference**: [docs.rs/laykit](https://docs.rs/laykit/) (tracks latest published crate)
 
 ## Testing
 
@@ -83,7 +83,7 @@ oasis.write_to_file("output.oas")?;
 cargo test
 ```
 
-178 tests — 0 failures — minimal dependency (`miniz_oxide` for OASIS CBLOCK).
+Run `./tests/run_all_tests.sh` locally before tagging a release. Pushing a version tag (e.g. `v0.0.5`) runs the full test, docs, GitHub release, and crates.io publish pipeline.
 
 ## License
 

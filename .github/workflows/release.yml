@@ -1,4 +1,4 @@
-name: CI
+name: Release
 
 on:
   push:
@@ -10,65 +10,31 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  fmt:
-    name: Format
+  verify:
+    name: Verify
     runs-on: ubuntu-latest
+    env:
+      RUSTFLAGS: -D warnings
+      RUSTDOCFLAGS: -D warnings
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt
+          components: rustfmt, clippy
 
       - name: Check formatting
         run: cargo fmt --all -- --check
 
-  clippy:
-    name: Clippy
-    needs: fmt
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          components: clippy
-
       - name: Run clippy
         run: cargo clippy --all-targets --all-features -- -D warnings
 
-  test:
-    name: Test
-    needs: clippy
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Cache cargo registry
-        uses: actions/cache@v4
-        with:
-          path: ~/.cargo/registry
-          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
-
-      - name: Cache cargo build
-        uses: actions/cache@v4
-        with:
-          path: target
-          key: ${{ runner.os }}-cargo-build-${{ hashFiles('**/Cargo.lock') }}
-
       - name: Run tests
-        run: cargo test
+        run: cargo test --all-features
 
       - name: Run doc tests
         run: cargo test --doc
-
-      - name: Build release
-        run: cargo build --release
 
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
@@ -81,9 +47,20 @@ jobs:
         working-directory: tests
         run: uv run gdstk_validation.py
 
+      - name: Verify version matches tag
+        run: |
+          TAG_VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG_VERSION#v}"
+          CARGO_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
+          if [ "$CARGO_VERSION" != "$VERSION" ]; then
+            echo "Version mismatch: Cargo.toml=$CARGO_VERSION, tag=$TAG_VERSION"
+            exit 1
+          fi
+          echo "Publishing version $CARGO_VERSION"
+
   build-binaries:
     name: Build Release Binaries (${{ matrix.artifact_name }})
-    needs: test
+    needs: verify
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: true
@@ -118,6 +95,7 @@ jobs:
           cargo run --release --target ${{ matrix.target }} --example gdsii_only
           cargo run --release --target ${{ matrix.target }} --example oasis_only
           cargo run --release --target ${{ matrix.target }} --example basic_usage
+          cargo run --release --target ${{ matrix.target }} --example unified_load
 
       - name: Prepare artifacts
         shell: bash
@@ -129,6 +107,7 @@ jobs:
             cp target/${{ matrix.target }}/release/examples/gdsii_only artifacts/ 2>/dev/null || true
             cp target/${{ matrix.target }}/release/examples/oasis_only artifacts/ 2>/dev/null || true
             cp target/${{ matrix.target }}/release/examples/basic_usage artifacts/ 2>/dev/null || true
+            cp target/${{ matrix.target }}/release/examples/unified_load artifacts/ 2>/dev/null || true
           fi
           cp README.md LICENSE artifacts/
 
@@ -152,7 +131,7 @@ jobs:
 
   docs:
     name: Build Documentation
-    needs: build-binaries
+    needs: verify
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -222,7 +201,7 @@ jobs:
 
   release:
     name: Create GitHub Release
-    needs: deploy-docs
+    needs: [build-binaries, deploy-docs]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -261,17 +240,6 @@ jobs:
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
-
-      - name: Verify version matches tag
-        run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG_VERSION#v}"
-          CARGO_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
-          if [ "$CARGO_VERSION" != "$VERSION" ]; then
-            echo "✗ Version mismatch: Cargo.toml=$CARGO_VERSION, Tag=$VERSION"
-            exit 1
-          fi
-          echo "✓ Version: $CARGO_VERSION"
 
       - name: Publish
         run: cargo publish

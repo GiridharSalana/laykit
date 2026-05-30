@@ -319,10 +319,12 @@ Look for issues labeled:
 
 (For maintainers)
 
-1. Update version in `Cargo.toml`
-2. Create git tag: `git tag v0.x.y`
-3. Push tag: `git push origin v0.x.y`
-4. CI builds and deploys automatically
+1. Bump `version` in `Cargo.toml` (only place that needs a manual version number).
+2. Commit and push to `main` (does **not** trigger crates.io or GitHub releases).
+3. Tag and push the tag: `git tag v0.x.y && git push origin v0.x.y`
+4. The [release workflow](https://github.com/GiridharSalana/laykit/blob/main/.github/workflows/release.yml) runs tests, builds docs, creates a GitHub release, and publishes to crates.io.
+
+README badges (crates.io, docs.rs) update automatically after crates.io publish — do not edit version numbers in `README.md`.
 
 ## Communication
 

@@ -15,7 +15,7 @@
 - ✅ Property management
 - ✅ CLI tool (convert, info, validate)
 - ✅ File format detection by magic bytes
-- ✅ 178 tests, unified I/O (`load` / `load_library`), OASIS CBLOCK support
+- ✅ Unified I/O (`load` / `load_library`), OASIS CBLOCK support
 
 ## Future
 
