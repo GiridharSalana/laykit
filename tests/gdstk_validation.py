@@ -174,9 +174,9 @@ def test_gds_to_oasis_conversion():
         try:
             lib_back = gdstk.read_gds(gds_back)
             
-            # Library name should be derived from filename "roundtrip.gds" -> "ROUNDTRIP"
-            if lib_back.name != "ROUNDTRIP":
-                print(f"FAIL\n  Library name incorrect: expected 'ROUNDTRIP', got '{lib_back.name}'")
+            # Library name must match the source (gdstk preserves LIBNAME on round-trip)
+            if lib_back.name != "CONVERT_TEST":
+                print(f"FAIL\n  Library name incorrect: expected 'CONVERT_TEST', got '{lib_back.name}'")
                 return False
             
             if "COMPLEX" not in [c.name for c in lib_back.cells]:
@@ -210,8 +210,8 @@ def test_properties():
         cell = lib.new_cell("WITHPROPS")
         
         rect = gdstk.rectangle((0, 0), (100, 100), layer=1, datatype=0)
-        rect.set_property("test_prop", "test_value")
-        rect.set_property("attr_42", "numeric_attr")  # gdstk expects string keys
+        rect.set_gds_property(1, "test_value")
+        rect.set_gds_property(42, "numeric_attr")
         cell.add(rect)
         
         lib.write_gds(gds_file)
@@ -234,13 +234,16 @@ def test_properties():
             poly = cell_back.polygons[0]
             props = poly.properties
             
-            # Check if properties exist (gdstk returns list of tuples)
-            # Note: Property preservation is nice-to-have but not critical
             if props is None or len(props) < 2:
-                print(f"PASS (geometry preserved, properties: {len(props) if props else 0}/2)")
-                return True
-            
-            print("PASS (full property preservation)")
+                print(f"FAIL\n  Expected 2 GDS properties, got {len(props) if props else 0}")
+                return False
+
+            attrs = {p[1] for p in props if len(p) >= 2 and p[0] == "S_GDS_PROPERTY"}
+            if attrs != {1, 42}:
+                print(f"FAIL\n  Property attributes mismatch: {attrs}")
+                return False
+
+            print("PASS")
             return True
             
         except Exception as e:

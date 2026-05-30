@@ -249,6 +249,7 @@ mod tests {
         let mut oasis = OASISFile::new();
         oasis.cells.push(OASISCell {
             name: "C".to_string(),
+            name_ref: None,
             elements: vec![OASISElement::Rectangle(Rectangle {
                 layer: 1,
                 datatype: 0,

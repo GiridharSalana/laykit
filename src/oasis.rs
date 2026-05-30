@@ -2,18 +2,34 @@
 // Full implementation of OASIS spec for IC layout interchange
 // More compact and modern than GDSII
 
-use miniz_oxide::inflate::decompress_to_vec_zlib;
+use miniz_oxide::deflate::compress_to_vec;
+use miniz_oxide::inflate::{decompress_to_vec, decompress_to_vec_zlib};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Cursor, Read, Write};
 use std::path::Path;
 
+/// Reserved PROPNAME/PROPSTRING reference for embedded GDSII library name.
+pub const LIBNAME_PROP_REF: u32 = 0xFFFF_FF00;
+pub const LIBNAME_PROP_NAME: &str = "LAYKIT_LIBNAME";
+
 /// OASIS File structure
 #[derive(Debug, Clone)]
 pub struct OASISFile {
     pub version: String,
+    /// Database unit in meters (OASIS START record).
     pub unit: f64,
+    /// GDSII user unit in meters (preserved for round-trip; not in OASIS START).
+    pub user_unit: f64,
+    /// OASIS START real = user_unit / database_unit (gdstk scaling factor).
+    pub start_scaling: f64,
+    /// Multiply OASIS integer coordinates by this (gdstk: 1 / START real).
+    pub coord_factor: f64,
     pub offset_flag: bool,
+    /// GDSII LIBNAME preserved across GDS↔OASIS conversion (stored in PROPNAME table).
+    pub library_name: String,
+    /// Raw-deflate CBLOCK level for cell bodies (0 = off, gdstk default ~6).
+    pub compression_level: u8,
     pub names: NameTable,
     pub cells: Vec<OASISCell>,
     pub layers: Vec<LayerInfo>,
@@ -32,6 +48,8 @@ pub struct NameTable {
 #[derive(Debug, Clone)]
 pub struct OASISCell {
     pub name: String,
+    /// Set when loaded from CELL_REF_NUM before CELLNAME table is complete.
+    pub name_ref: Option<u32>,
     pub elements: Vec<OASISElement>,
 }
 
@@ -136,6 +154,8 @@ pub struct OText {
     pub x: i64,
     pub y: i64,
     pub string: String,
+    /// Resolved after load when TEXTSTRING table is populated after TEXT record.
+    pub string_ref: Option<u32>,
     pub repetition: Option<Repetition>,
     pub properties: Vec<Property>,
 }
@@ -150,6 +170,22 @@ pub struct Placement {
     pub mirror: bool,
     pub repetition: Option<Repetition>,
     pub properties: Vec<Property>,
+}
+
+#[derive(Debug, Clone)]
+#[derive(Default)]
+struct OasisReadModal {
+    absolute: bool,
+    placement_pos: (i64, i64),
+    placement_cell: Option<String>,
+    layer: u32,
+    datatype: u32,
+    geom_dim: (i64, i64),
+    geom_pos: (i64, i64),
+    text_layer: u32,
+    texttype: u32,
+    text_string: Option<String>,
+    text_pos: (i64, i64),
 }
 
 #[derive(Debug, Clone)]
@@ -210,17 +246,19 @@ mod record_ids {
     pub const TEXTSTRING: u8 = 5;
     pub const PROPNAME: u8 = 7;
     pub const LAYERNAME: u8 = 11;
-    pub const CELL: u8 = 13;
-    pub const XYABSOLUTE: u8 = 14;
-    pub const XYRELATIVE: u8 = 15;
-    pub const PLACEMENT: u8 = 16;
-    pub const TEXT: u8 = 18;
-    pub const RECTANGLE: u8 = 19;
-    pub const POLYGON: u8 = 20;
-    pub const PATH: u8 = 21;
-    pub const TRAPEZOID: u8 = 22;
-    pub const CTRAPEZOID: u8 = 23;
-    pub const CIRCLE: u8 = 24;
+    pub const CELL_REF_NUM: u8 = 13;
+    pub const CELL: u8 = 14;
+    pub const XYABSOLUTE: u8 = 15;
+    pub const XYRELATIVE: u8 = 16;
+    pub const PLACEMENT: u8 = 17;
+    pub const PLACEMENT_TRANSFORM: u8 = 18;
+    pub const TEXT: u8 = 19;
+    pub const RECTANGLE: u8 = 20;
+    pub const POLYGON: u8 = 21;
+    pub const PATH: u8 = 22;
+    pub const TRAPEZOID_AB: u8 = 23;
+    pub const CTRAPEZOID: u8 = 26;
+    pub const CIRCLE: u8 = 27;
 }
 
 impl Default for OASISFile {
@@ -228,7 +266,12 @@ impl Default for OASISFile {
         OASISFile {
             version: "1.0".to_string(),
             unit: 1e-9, // 1nm database unit
+            user_unit: 1e-6,
+            start_scaling: 1000.0,
+            coord_factor: 1.0,
             offset_flag: false,
+            library_name: String::new(),
+            compression_level: 6,
             names: NameTable {
                 cell_names: HashMap::new(),
                 text_strings: HashMap::new(),
@@ -286,8 +329,20 @@ impl OASISFile {
                 1 => {
                     // START
                     oasis.version = Self::read_string(&mut cursor)?;
-                    oasis.unit = Self::read_real(&mut cursor)?;
+                    oasis.start_scaling = Self::read_real(&mut cursor)?;
                     oasis.offset_flag = Self::read_u8(&mut cursor)? != 0;
+                    // gdstk writes start_scaling = user_unit / precision; default micron user unit
+                    oasis.user_unit = 1e-6;
+                    oasis.unit = if oasis.start_scaling > 0.0 {
+                        oasis.user_unit / oasis.start_scaling
+                    } else {
+                        1e-9
+                    };
+                    oasis.coord_factor = if oasis.start_scaling > 0.0 {
+                        1.0 / oasis.start_scaling
+                    } else {
+                        1.0
+                    };
                 }
                 2 => {
                     // END
@@ -296,8 +351,14 @@ impl OASISFile {
                     let _ = Self::read_unsigned(&mut cursor);
                     break;
                 }
-                3 | 4 => {
-                    // CELLNAME (explicit and implicit)
+                3 => {
+                    // CELLNAME_IMPLICIT — append to name table
+                    let name = Self::read_string(&mut cursor)?;
+                    let ref_num = oasis.names.cell_names.len() as u32;
+                    oasis.names.cell_names.insert(ref_num, name);
+                }
+                4 => {
+                    // CELLNAME — assign at reference number
                     let name = Self::read_string(&mut cursor)?;
                     let ref_num = Self::read_unsigned(&mut cursor)? as u32;
                     oasis.names.cell_names.insert(ref_num, name);
@@ -331,32 +392,52 @@ impl OASISFile {
                     }
                 }
                 13 => {
-                    // CELL
-                    let cell = Self::read_cell(&mut cursor, &oasis.names)?;
+                    let cell =
+                        Self::read_cell_ref_num(&mut cursor, &mut oasis.names, oasis.coord_factor)?;
                     oasis.cells.push(cell);
                 }
-                14 => { // XYAbsolute
-                    // Coordinate mode - no data, just skip
+                14 => {
+                    let cell =
+                        Self::read_cell_named(&mut cursor, &mut oasis.names, oasis.coord_factor)?;
+                    oasis.cells.push(cell);
                 }
-                15 => { // XYRelative
-                    // Coordinate mode - no data, just skip
-                }
-                19 => { // RECTANGLE
-                    // Handled within cell context
-                }
-                20 => { // POLYGON
-                    // Handled within cell context
-                }
-                21 => { // PATH
-                    // Handled within cell context
-                }
+                15 => { /* XYABSOLUTE — handled in cell body */ }
+                16 => { /* XYRELATIVE — handled in cell body */ }
                 _ => {
                     // Skip unknown records
                 }
             }
         }
 
+        if oasis.library_name.is_empty()
+            && oasis.names.prop_names.get(&LIBNAME_PROP_REF) == Some(&LIBNAME_PROP_NAME.to_string())
+        {
+            if let Some(name) = oasis.names.prop_strings.get(&LIBNAME_PROP_REF) {
+                oasis.library_name = name.clone();
+            }
+        }
+
+        Self::resolve_deferred_cell_names(&mut oasis);
+        Self::resolve_deferred_text_strings(&mut oasis);
+
         Ok(oasis)
+    }
+
+    fn resolve_deferred_text_strings(oasis: &mut OASISFile) {
+        for cell in &mut oasis.cells {
+            for element in &mut cell.elements {
+                if let OASISElement::Text(t) = element {
+                    if t.string.is_empty() {
+                        if let Some(ref_num) = t.string_ref {
+                            if let Some(s) = oasis.names.text_strings.get(&ref_num) {
+                                t.string = s.clone();
+                            }
+                        }
+                    }
+                    t.string_ref = None;
+                }
+            }
+        }
     }
 
     /// Write OASIS to file
@@ -377,31 +458,79 @@ impl OASISFile {
         // Write START record
         Self::write_u8(writer, 1)?;
         Self::write_string(writer, &self.version)?;
-        Self::write_real(writer, self.unit)?;
+        let scaling = if self.start_scaling > 0.0 {
+            self.start_scaling
+        } else if self.unit > 0.0 {
+            self.user_unit / self.unit
+        } else {
+            1000.0
+        };
+        Self::write_real(writer, scaling)?;
         Self::write_u8(writer, if self.offset_flag { 1 } else { 0 })?;
 
-        // Write name tables
-        for (ref_num, name) in &self.names.cell_names {
-            Self::write_u8(writer, 3)?; // CELLNAME
-            Self::write_string(writer, name)?;
-            Self::write_unsigned(writer, *ref_num as u64)?;
+        let mut prop_names = self.names.prop_names.clone();
+        let mut prop_strings = self.names.prop_strings.clone();
+        if !self.library_name.is_empty() {
+            prop_names.insert(LIBNAME_PROP_REF, LIBNAME_PROP_NAME.to_string());
+            prop_strings.insert(LIBNAME_PROP_REF, self.library_name.clone());
         }
 
-        for (ref_num, string) in &self.names.text_strings {
+        // Write name tables (ensure every cell has a name reference)
+        let mut names = self.names.clone();
+        for cell in &self.cells {
+            if !names.cell_names.values().any(|n| n == &cell.name) {
+                let id = names.cell_names.len() as u32;
+                names.cell_names.insert(id, cell.name.clone());
+            }
+        }
+
+        let mut cell_name_entries: Vec<_> = names.cell_names.iter().collect();
+        cell_name_entries.sort_by_key(|(k, _)| *k);
+        for (_, name) in cell_name_entries {
+            Self::write_u8(writer, 3)?; // CELLNAME_IMPLICIT
+            Self::write_string(writer, name)?;
+        }
+
+        for cell in &self.cells {
+            for element in &cell.elements {
+                if let OASISElement::Text(t) = element {
+                    if !names.text_strings.values().any(|s| s == &t.string) {
+                        let id = names.text_strings.len() as u32;
+                        names.text_strings.insert(id, t.string.clone());
+                    }
+                }
+            }
+        }
+
+        for (ref_num, string) in &names.text_strings {
             Self::write_u8(writer, 5)?; // TEXTSTRING
             Self::write_string(writer, string)?;
             Self::write_unsigned(writer, *ref_num as u64)?;
         }
 
-        for (ref_num, name) in &self.names.prop_names {
+        for (ref_num, name) in &prop_names {
             Self::write_u8(writer, 7)?; // PROPNAME
             Self::write_string(writer, name)?;
             Self::write_unsigned(writer, *ref_num as u64)?;
         }
 
+        for (ref_num, string) in &prop_strings {
+            Self::write_u8(writer, 9)?; // PROPSTRING
+            Self::write_string(writer, string)?;
+            Self::write_unsigned(writer, *ref_num as u64)?;
+        }
+
+        let scaling = if self.start_scaling > 0.0 {
+            self.start_scaling
+        } else if self.unit > 0.0 {
+            self.user_unit / self.unit
+        } else {
+            1000.0
+        };
+
         // Write cells
         for cell in &self.cells {
-            cell.write(writer, &self.names)?;
+            cell.write(writer, &names, scaling, self.compression_level)?;
         }
 
         // Write END record
@@ -413,37 +542,138 @@ impl OASISFile {
         Ok(())
     }
 
-    fn read_cell(
+    fn resolve_deferred_cell_names(oasis: &mut OASISFile) {
+        for cell in &mut oasis.cells {
+            if let Some(ref_num) = cell.name_ref {
+                if let Some(name) = oasis.names.cell_names.get(&ref_num) {
+                    cell.name = name.clone();
+                } else if cell.name.is_empty() {
+                    cell.name = format!("CELL_{ref_num}");
+                }
+                cell.name_ref = None;
+            }
+        }
+    }
+
+    fn read_cell_ref_num(
         cursor: &mut Cursor<Vec<u8>>,
-        names: &NameTable,
+        names: &mut NameTable,
+        factor: f64,
     ) -> Result<OASISCell, Box<dyn std::error::Error>> {
-        let name_ref_or_string = Self::read_unsigned(cursor)?;
-
-        let name = if name_ref_or_string & 1 == 0 {
-            // Reference
-            let ref_num = (name_ref_or_string >> 1) as u32;
-            names
-                .cell_names
-                .get(&ref_num)
-                .ok_or("Cell name reference not found")?
-                .clone()
-        } else {
-            // Explicit string
-            Self::read_string(cursor)?
-        };
-
+        let ref_num = Self::read_unsigned(cursor)? as u32;
         let mut cell = OASISCell {
-            name,
+            name: String::new(),
+            name_ref: Some(ref_num),
             elements: Vec::new(),
         };
-
-        Self::read_cell_body(cursor, names, &mut cell)?;
+        let mut modal = OasisReadModal::default();
+        modal.absolute = true;
+        Self::read_cell_body(cursor, names, &mut modal, factor, &mut cell)?;
         Ok(cell)
+    }
+
+    fn read_cell_named(
+        cursor: &mut Cursor<Vec<u8>>,
+        names: &mut NameTable,
+        factor: f64,
+    ) -> Result<OASISCell, Box<dyn std::error::Error>> {
+        let name = Self::read_string(cursor)?;
+        let mut cell = OASISCell {
+            name,
+            name_ref: None,
+            elements: Vec::new(),
+        };
+        let mut modal = OasisReadModal::default();
+        modal.absolute = true;
+        Self::read_cell_body(cursor, names, &mut modal, factor, &mut cell)?;
+        Ok(cell)
+    }
+
+    fn scale_coord(factor: f64, v: i64) -> i64 {
+        (factor * v as f64).round() as i64
+    }
+
+    fn scale_coord_u(factor: f64, v: u64) -> i64 {
+        (factor * v as f64).round() as i64
+    }
+
+    fn read_repetition(
+        cursor: &mut Cursor<Vec<u8>>,
+    ) -> Result<Option<Repetition>, Box<dyn std::error::Error>> {
+        let rep_type = Self::read_u8(cursor)?;
+        if rep_type == 0 {
+            return Ok(None);
+        }
+        match rep_type {
+            1 => Ok(Some(Repetition::Matrix {
+                x_count: (2 + Self::read_unsigned(cursor)?) as u32,
+                y_count: (2 + Self::read_unsigned(cursor)?) as u32,
+                x_space: Self::read_unsigned(cursor)?,
+                y_space: Self::read_unsigned(cursor)?,
+            })),
+            2 => Ok(Some(Repetition::Matrix {
+                x_count: (2 + Self::read_unsigned(cursor)?) as u32,
+                y_count: 1,
+                x_space: Self::read_unsigned(cursor)?,
+                y_space: 0,
+            })),
+            3 => Ok(Some(Repetition::Matrix {
+                x_count: 1,
+                y_count: (2 + Self::read_unsigned(cursor)?) as u32,
+                x_space: 0,
+                y_space: Self::read_unsigned(cursor)?,
+            })),
+            _ => Ok(None),
+        }
+    }
+
+    fn write_repetition<W: Write>(
+        writer: &mut W,
+        repetition: &Repetition,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        match repetition {
+            Repetition::Matrix {
+                x_count,
+                y_count,
+                x_space,
+                y_space,
+            } if *x_count > 1 && *y_count > 1 => {
+                Self::write_u8(writer, 1)?;
+                Self::write_unsigned(writer, (*x_count - 2) as u64)?;
+                Self::write_unsigned(writer, (*y_count - 2) as u64)?;
+                Self::write_unsigned(writer, *x_space)?;
+                Self::write_unsigned(writer, *y_space)?;
+            }
+            Repetition::Matrix {
+                x_count,
+                y_count: 1,
+                x_space,
+                y_space: 0,
+            } if *x_count > 1 => {
+                Self::write_u8(writer, 2)?;
+                Self::write_unsigned(writer, (*x_count - 2) as u64)?;
+                Self::write_unsigned(writer, *x_space)?;
+            }
+            Repetition::Matrix {
+                x_count: 1,
+                y_count,
+                x_space: 0,
+                y_space,
+            } if *y_count > 1 => {
+                Self::write_u8(writer, 3)?;
+                Self::write_unsigned(writer, (*y_count - 2) as u64)?;
+                Self::write_unsigned(writer, *y_space)?;
+            }
+            _ => Self::write_u8(writer, 0)?,
+        }
+        Ok(())
     }
 
     fn read_cell_body(
         cursor: &mut Cursor<Vec<u8>>,
-        names: &NameTable,
+        names: &mut NameTable,
+        modal: &mut OasisReadModal,
+        factor: f64,
         cell: &mut OASISCell,
     ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
@@ -458,47 +688,63 @@ impl OASISFile {
             }
 
             match record_id {
-                2 | 13 => {
+                2 | 13 | 14 => {
                     cursor.set_position(position);
                     break;
                 }
-                14 | 15 => continue,
-                16 => {
-                    if let Ok(elem) = Self::read_placement(cursor, names) {
+                3 => {
+                    let name = Self::read_string(cursor)?;
+                    let ref_num = names.cell_names.len() as u32;
+                    names.cell_names.insert(ref_num, name);
+                }
+                4 => {
+                    let name = Self::read_string(cursor)?;
+                    let ref_num = Self::read_unsigned(cursor)? as u32;
+                    names.cell_names.insert(ref_num, name);
+                }
+                15 => modal.absolute = true,
+                16 => modal.absolute = false,
+                17 => {
+                    if let Ok(elem) = Self::read_placement(cursor, names, modal, false) {
                         cell.elements.push(OASISElement::Placement(elem));
                     }
                 }
                 18 => {
-                    if let Ok(elem) = Self::read_text(cursor, names) {
-                        cell.elements.push(OASISElement::Text(elem));
+                    if let Ok(elem) = Self::read_placement(cursor, names, modal, true) {
+                        cell.elements.push(OASISElement::Placement(elem));
                     }
                 }
                 19 => {
-                    if let Ok(elem) = Self::read_rectangle(cursor) {
-                        cell.elements.push(OASISElement::Rectangle(elem));
+                    if let Ok(elem) = Self::read_text(cursor, names, modal, factor) {
+                        cell.elements.push(OASISElement::Text(elem));
                     }
                 }
                 20 => {
+                    if let Ok(elem) = Self::read_rectangle(cursor, modal, factor) {
+                        cell.elements.push(OASISElement::Rectangle(elem));
+                    }
+                }
+                21 => {
                     if let Ok(elem) = Self::read_polygon(cursor) {
                         cell.elements.push(OASISElement::Polygon(elem));
                     }
                 }
-                21 => {
+                22 => {
                     if let Ok(elem) = Self::read_path(cursor) {
                         cell.elements.push(OASISElement::Path(elem));
                     }
                 }
-                22 => {
+                23 | 24 | 25 => {
                     if let Ok(elem) = Self::read_trapezoid(cursor) {
                         cell.elements.push(OASISElement::Trapezoid(elem));
                     }
                 }
-                23 => {
+                26 => {
                     if let Ok(elem) = Self::read_ctrapezoid(cursor) {
                         cell.elements.push(OASISElement::CTrapezoid(elem));
                     }
                 }
-                24 => {
+                27 => {
                     if let Ok(elem) = Self::read_circle(cursor) {
                         cell.elements.push(OASISElement::Circle(elem));
                     }
@@ -508,14 +754,17 @@ impl OASISFile {
                         Self::attach_property(cell, prop);
                     }
                 }
-                30 | 31 | 34 => {
+                30 | 31 => {
                     let _ = Self::read_unsigned(cursor);
                     let _ = Self::read_string(cursor);
                 }
-                32 | 33 => {
+                32 | 33 | 34 => {
+                    // XELEMENT / XGEOMETRY / CBLOCK (gdstk writes geometry in 34)
                     if let Ok(chunk) = Self::read_cblock(cursor) {
                         let mut sub = Cursor::new(chunk);
-                        Self::read_cell_body(&mut sub, names, cell)?;
+                        let mut sub_modal = OasisReadModal::default();
+                        sub_modal.absolute = modal.absolute;
+                        Self::read_cell_body(&mut sub, names, &mut sub_modal, factor, cell)?;
                     }
                 }
                 _ => {
@@ -527,6 +776,20 @@ impl OASISFile {
         Ok(())
     }
 
+    fn write_cblock<W: Write>(
+        writer: &mut W,
+        uncompressed: &[u8],
+        level: u8,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let compressed = compress_to_vec(uncompressed, level.min(9));
+        Self::write_u8(writer, 34)?; // CBLOCK
+        Self::write_u8(writer, 0)?; // raw deflate
+        Self::write_unsigned(writer, uncompressed.len() as u64)?;
+        Self::write_unsigned(writer, compressed.len() as u64)?;
+        writer.write_all(&compressed)?;
+        Ok(())
+    }
+
     fn read_cblock(cursor: &mut Cursor<Vec<u8>>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
         let comp_type = Self::read_unsigned(cursor)?;
         let uncomp_byte_count = Self::read_unsigned(cursor)?;
@@ -534,8 +797,10 @@ impl OASISFile {
         let compressed = Self::read_bytes(cursor, comp_byte_count as usize)?;
         match comp_type {
             0 => {
-                let out = decompress_to_vec_zlib(&compressed)
-                    .map_err(|e| format!("CBLOCK zlib decompress failed: {e}"))?;
+                // OASIS / gdstk use raw deflate (no zlib header) for type 0
+                let out = decompress_to_vec(&compressed)
+                    .or_else(|_| decompress_to_vec_zlib(&compressed))
+                    .map_err(|e| format!("CBLOCK decompress failed: {e}"))?;
                 if uncomp_byte_count > 0 && out.len() != uncomp_byte_count as usize {
                     return Err(format!(
                         "CBLOCK size mismatch: expected {uncomp_byte_count}, got {}",
@@ -611,23 +876,54 @@ impl OASISFile {
 
     fn read_rectangle(
         cursor: &mut Cursor<Vec<u8>>,
+        modal: &mut OasisReadModal,
+        factor: f64,
     ) -> Result<Rectangle, Box<dyn std::error::Error>> {
-        let _info_byte = Self::read_u8(cursor)?;
-        let layer = Self::read_unsigned(cursor)? as u32;
-        let datatype = Self::read_unsigned(cursor)? as u32;
-        let width = Self::read_unsigned(cursor)?;
-        let height = Self::read_unsigned(cursor)?;
-        let x = Self::read_signed(cursor)?;
-        let y = Self::read_signed(cursor)?;
+        let info = Self::read_u8(cursor)?;
+        if info & 0x01 != 0 {
+            modal.layer = Self::read_unsigned(cursor)? as u32;
+        }
+        if info & 0x02 != 0 {
+            modal.datatype = Self::read_unsigned(cursor)? as u32;
+        }
+        if info & 0x40 != 0 {
+            modal.geom_dim.0 = Self::scale_coord_u(factor, Self::read_unsigned(cursor)?);
+        }
+        if info & 0x20 != 0 {
+            modal.geom_dim.1 = Self::scale_coord_u(factor, Self::read_unsigned(cursor)?);
+        } else if info & 0x80 != 0 {
+            modal.geom_dim.1 = modal.geom_dim.0;
+        }
+        if info & 0x10 != 0 {
+            let x = Self::scale_coord(factor, Self::read_signed(cursor)?);
+            modal.geom_pos.0 = if modal.absolute {
+                x
+            } else {
+                modal.geom_pos.0 + x
+            };
+        }
+        if info & 0x08 != 0 {
+            let y = Self::scale_coord(factor, Self::read_signed(cursor)?);
+            modal.geom_pos.1 = if modal.absolute {
+                y
+            } else {
+                modal.geom_pos.1 + y
+            };
+        }
+        let repetition = if info & 0x04 != 0 {
+            Self::read_repetition(cursor)?
+        } else {
+            None
+        };
 
         Ok(Rectangle {
-            layer,
-            datatype,
-            x,
-            y,
-            width,
-            height,
-            repetition: None,
+            layer: modal.layer,
+            datatype: modal.datatype,
+            x: modal.geom_pos.0,
+            y: modal.geom_pos.1,
+            width: modal.geom_dim.0.max(0) as u64,
+            height: modal.geom_dim.1.max(0) as u64,
+            repetition,
             properties: Vec::new(),
         })
     }
@@ -773,41 +1069,157 @@ impl OASISFile {
 
     fn read_text(
         cursor: &mut Cursor<Vec<u8>>,
-        _names: &NameTable,
+        names: &NameTable,
+        modal: &mut OasisReadModal,
+        factor: f64,
     ) -> Result<OText, Box<dyn std::error::Error>> {
-        let layer = Self::read_unsigned(cursor)? as u32;
-        let texttype = Self::read_unsigned(cursor)? as u32;
-        let string = Self::read_string(cursor)?;
-        let x = Self::read_signed(cursor)?;
-        let y = Self::read_signed(cursor)?;
+        let info = Self::read_u8(cursor)?;
+        let (string, string_ref) = if info & 0x40 != 0 {
+            if info & 0x20 != 0 {
+                let ref_num = Self::read_unsigned(cursor)? as u32;
+                let s = names.text_strings.get(&ref_num).cloned().unwrap_or_default();
+                (s, if names.text_strings.contains_key(&ref_num) {
+                    None
+                } else {
+                    Some(ref_num)
+                })
+            } else {
+                (Self::read_string(cursor)?, None)
+            }
+        } else {
+            (
+                modal
+                    .text_string
+                    .clone()
+                    .ok_or("modal text string undefined")?,
+                None,
+            )
+        };
+        if !string.is_empty() {
+            modal.text_string = Some(string.clone());
+        }
+
+        if info & 0x01 != 0 {
+            modal.text_layer = Self::read_unsigned(cursor)? as u32;
+        }
+        if info & 0x02 != 0 {
+            modal.texttype = Self::read_unsigned(cursor)? as u32;
+        }
+        if info & 0x10 != 0 {
+            let x = Self::scale_coord(factor, Self::read_signed(cursor)?);
+            modal.text_pos.0 = if modal.absolute {
+                x
+            } else {
+                modal.text_pos.0 + x
+            };
+        }
+        if info & 0x08 != 0 {
+            let y = Self::scale_coord(factor, Self::read_signed(cursor)?);
+            modal.text_pos.1 = if modal.absolute {
+                y
+            } else {
+                modal.text_pos.1 + y
+            };
+        }
+        let repetition = if info & 0x04 != 0 {
+            Self::read_repetition(cursor)?
+        } else {
+            None
+        };
 
         Ok(OText {
-            layer,
-            texttype,
+            layer: modal.text_layer,
+            texttype: modal.texttype,
             string,
-            x,
-            y,
-            repetition: None,
+            string_ref,
+            x: modal.text_pos.0,
+            y: modal.text_pos.1,
+            repetition,
             properties: Vec::new(),
         })
     }
 
     fn read_placement(
         cursor: &mut Cursor<Vec<u8>>,
-        _names: &NameTable,
+        names: &NameTable,
+        modal: &mut OasisReadModal,
+        transform_record: bool,
     ) -> Result<Placement, Box<dyn std::error::Error>> {
-        let cell_name = Self::read_string(cursor)?;
-        let x = Self::read_signed(cursor)?;
-        let y = Self::read_signed(cursor)?;
+        let info = Self::read_u8(cursor)?;
+
+        let cell_name = if info & 0x80 != 0 {
+            if info & 0x40 != 0 {
+                let ref_num = Self::read_unsigned(cursor)? as u32;
+                names
+                    .cell_names
+                    .get(&ref_num)
+                    .cloned()
+                    .ok_or_else(|| format!("cell name reference {ref_num} not found"))?
+            } else {
+                Self::read_string(cursor)?
+            }
+        } else {
+            modal
+                .placement_cell
+                .clone()
+                .ok_or("modal placement cell undefined")?
+        };
+        modal.placement_cell = Some(cell_name.clone());
+
+        let mut magnification = 1.0f64;
+        let mut angle = 0.0f64;
+        if transform_record {
+            if info & 0x04 != 0 {
+                magnification = Self::read_real(cursor)?;
+            }
+            if info & 0x02 != 0 {
+                angle = Self::read_real(cursor)? * (std::f64::consts::PI / 180.0);
+            }
+        } else {
+            match info & 0x06 {
+                0x02 => angle = std::f64::consts::FRAC_PI_2,
+                0x04 => angle = std::f64::consts::PI,
+                0x06 => angle = 3.0 * std::f64::consts::FRAC_PI_2,
+                _ => {}
+            }
+        }
+        let mirror = info & 0x01 != 0;
+
+        if info & 0x20 != 0 {
+            let x = Self::read_signed(cursor)?;
+            modal.placement_pos.0 = if modal.absolute {
+                x
+            } else {
+                modal.placement_pos.0 + x
+            };
+        }
+        if info & 0x10 != 0 {
+            let y = Self::read_signed(cursor)?;
+            modal.placement_pos.1 = if modal.absolute {
+                y
+            } else {
+                modal.placement_pos.1 + y
+            };
+        }
+
+        let repetition = if info & 0x08 != 0 {
+            Self::read_repetition(cursor)?
+        } else {
+            None
+        };
 
         Ok(Placement {
             cell_name,
-            x,
-            y,
-            magnification: None,
-            angle: None,
-            mirror: false,
-            repetition: None,
+            x: modal.placement_pos.0,
+            y: modal.placement_pos.1,
+            magnification: if (magnification - 1.0).abs() > 1e-12 {
+                Some(magnification)
+            } else {
+                None
+            },
+            angle: if angle.abs() > 1e-12 { Some(angle) } else { None },
+            mirror,
+            repetition,
             properties: Vec::new(),
         })
     }
@@ -997,31 +1409,32 @@ impl OASISCell {
         &self,
         writer: &mut W,
         names: &NameTable,
+        scaling: f64,
+        compression_level: u8,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        // Write CELL record (type 13 or 14)
-        // For simplicity, use type 14 which includes explicit placement
-        OASISFile::write_u8(writer, 14)?; // XYAbsolute - sets coordinate mode
+        OASISFile::write_u8(writer, 15)?; // XYABSOLUTE
+        OASISFile::write_u8(writer, 13)?; // CELL_REF_NUM
 
-        // Write CELL record
-        OASISFile::write_u8(writer, 13)?;
-
-        // Write cell name (using reference if available)
         let name_ref = names
             .cell_names
             .iter()
             .find(|(_, n)| n.as_str() == self.name)
-            .map(|(r, _)| *r);
+            .map(|(r, _)| *r)
+            .unwrap_or(0);
+        OASISFile::write_unsigned(writer, name_ref as u64)?;
 
-        if let Some(ref_num) = name_ref {
-            OASISFile::write_unsigned(writer, (ref_num as u64) << 1)?;
-        } else {
-            OASISFile::write_unsigned(writer, 1)?;
-            OASISFile::write_string(writer, &self.name)?;
+        let mut body = Vec::new();
+        {
+            let mut buf = std::io::Cursor::new(&mut body);
+            for element in &self.elements {
+                element.write(&mut buf, names, scaling)?;
+            }
         }
 
-        // Write elements
-        for element in &self.elements {
-            element.write(writer, names)?;
+        if compression_level > 0 && !body.is_empty() {
+            OASISFile::write_cblock(writer, &body, compression_level)?;
+        } else {
+            writer.write_all(&body)?;
         }
 
         Ok(())
@@ -1033,37 +1446,56 @@ impl OASISElement {
         &self,
         writer: &mut W,
         names: &NameTable,
+        scaling: f64,
     ) -> Result<(), Box<dyn std::error::Error>> {
         match self {
-            OASISElement::Rectangle(r) => r.write(writer),
+            OASISElement::Rectangle(r) => r.write(writer, scaling),
             OASISElement::Polygon(p) => p.write(writer),
             OASISElement::Path(p) => p.write(writer),
             OASISElement::Trapezoid(t) => t.write(writer),
             OASISElement::CTrapezoid(ct) => ct.write(writer),
             OASISElement::Circle(c) => c.write(writer),
-            OASISElement::Text(t) => t.write(writer, names),
+            OASISElement::Text(t) => t.write(writer, names, scaling),
             OASISElement::Placement(p) => p.write(writer, names),
         }
     }
 }
 
 impl Rectangle {
-    fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 19)?; // RECTANGLE
-        OASISFile::write_u8(writer, 0)?; // Info byte (simplified)
+    fn write<W: Write>(
+        &self,
+        writer: &mut W,
+        scaling: f64,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let w = (self.width as f64 * scaling).round() as u64;
+        let h = (self.height as f64 * scaling).round() as u64;
+        let x = (self.x as f64 * scaling).round() as i64;
+        let y = (self.y as f64 * scaling).round() as i64;
+        let square = w == h;
+        let mut info: u8 = if square { 0xDB } else { 0x7B };
+        if self.repetition.is_some() {
+            info |= 0x04;
+        }
+        OASISFile::write_u8(writer, 20)?; // RECTANGLE
+        OASISFile::write_u8(writer, info)?;
         OASISFile::write_unsigned(writer, self.layer as u64)?;
         OASISFile::write_unsigned(writer, self.datatype as u64)?;
-        OASISFile::write_unsigned(writer, self.width)?;
-        OASISFile::write_unsigned(writer, self.height)?;
-        OASISFile::write_signed(writer, self.x)?;
-        OASISFile::write_signed(writer, self.y)?;
+        OASISFile::write_unsigned(writer, w)?;
+        if !square {
+            OASISFile::write_unsigned(writer, h)?;
+        }
+        OASISFile::write_signed(writer, x)?;
+        OASISFile::write_signed(writer, y)?;
+        if let Some(rep) = &self.repetition {
+            OASISFile::write_repetition(writer, rep)?;
+        }
         Ok(())
     }
 }
 
 impl Polygon {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 20)?; // POLYGON
+        OASISFile::write_u8(writer, 21)?; // POLYGON
         OASISFile::write_u8(writer, 0)?; // Info byte (simplified)
         OASISFile::write_unsigned(writer, self.layer as u64)?;
         OASISFile::write_unsigned(writer, self.datatype as u64)?;
@@ -1082,7 +1514,7 @@ impl Polygon {
 
 impl OPath {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 21)?; // PATH
+        OASISFile::write_u8(writer, 22)?; // PATH
         OASISFile::write_u8(writer, 0)?; // Info byte (simplified)
         OASISFile::write_unsigned(writer, self.layer as u64)?;
         OASISFile::write_unsigned(writer, self.datatype as u64)?;
@@ -1113,7 +1545,7 @@ impl OPath {
 
 impl Trapezoid {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 22)?; // TRAPEZOID
+        OASISFile::write_u8(writer, 23)?; // TRAPEZOID_AB
         OASISFile::write_unsigned(writer, self.layer as u64)?;
         OASISFile::write_unsigned(writer, self.datatype as u64)?;
         OASISFile::write_u8(writer, if self.orientation { 1 } else { 0 })?;
@@ -1129,7 +1561,7 @@ impl Trapezoid {
 
 impl CTrapezoid {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 23)?; // CTRAPEZOID
+        OASISFile::write_u8(writer, 26)?; // CTRAPEZOID
         OASISFile::write_unsigned(writer, self.layer as u64)?;
         OASISFile::write_unsigned(writer, self.datatype as u64)?;
         OASISFile::write_u8(writer, self.trap_type)?;
@@ -1143,7 +1575,7 @@ impl CTrapezoid {
 
 impl Circle {
     fn write<W: Write>(&self, writer: &mut W) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 24)?; // CIRCLE
+        OASISFile::write_u8(writer, 27)?; // CIRCLE
         OASISFile::write_unsigned(writer, self.layer as u64)?;
         OASISFile::write_unsigned(writer, self.datatype as u64)?;
         OASISFile::write_unsigned(writer, self.radius)?;
@@ -1157,14 +1589,31 @@ impl OText {
     fn write<W: Write>(
         &self,
         writer: &mut W,
-        _names: &NameTable,
+        names: &NameTable,
+        scaling: f64,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 18)?; // TEXT
+        let text_ref = names
+            .text_strings
+            .iter()
+            .find(|(_, s)| s.as_str() == self.string)
+            .map(|(r, _)| *r)
+            .unwrap_or(0);
+        let mut info: u8 = 0x7B; // explicit text ref + layer + texttype + x + y (gdstk)
+        if self.repetition.is_some() {
+            info |= 0x04;
+        }
+        let x = (self.x as f64 * scaling).round() as i64;
+        let y = (self.y as f64 * scaling).round() as i64;
+        OASISFile::write_u8(writer, 19)?; // TEXT
+        OASISFile::write_u8(writer, info)?;
+        OASISFile::write_unsigned(writer, text_ref as u64)?;
         OASISFile::write_unsigned(writer, self.layer as u64)?;
         OASISFile::write_unsigned(writer, self.texttype as u64)?;
-        OASISFile::write_string(writer, &self.string)?;
-        OASISFile::write_signed(writer, self.x)?;
-        OASISFile::write_signed(writer, self.y)?;
+        OASISFile::write_signed(writer, x)?;
+        OASISFile::write_signed(writer, y)?;
+        if let Some(rep) = &self.repetition {
+            OASISFile::write_repetition(writer, rep)?;
+        }
         Ok(())
     }
 }
@@ -1173,12 +1622,42 @@ impl Placement {
     fn write<W: Write>(
         &self,
         writer: &mut W,
-        _names: &NameTable,
+        names: &NameTable,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        OASISFile::write_u8(writer, 16)?; // PLACEMENT
-        OASISFile::write_string(writer, &self.cell_name)?;
+        let cell_ref = names
+            .cell_names
+            .iter()
+            .find(|(_, n)| n.as_str() == self.cell_name)
+            .map(|(r, _)| *r)
+            .unwrap_or(0);
+
+        let has_repetition = self.repetition.as_ref().is_some_and(|r| {
+            matches!(
+                r,
+                Repetition::Matrix {
+                    x_count,
+                    y_count,
+                    ..
+                } if *x_count > 1 || *y_count > 1
+            )
+        });
+
+        let mut info: u8 = 0xF0 | 0x40 | 0x80; // explicit cell ref number
+        if has_repetition {
+            info |= 0x08;
+        }
+        if self.mirror {
+            info |= 0x01;
+        }
+
+        OASISFile::write_u8(writer, 17)?; // PLACEMENT
+        OASISFile::write_u8(writer, info)?;
+        OASISFile::write_unsigned(writer, cell_ref as u64)?;
         OASISFile::write_signed(writer, self.x)?;
         OASISFile::write_signed(writer, self.y)?;
+        if let Some(ref rep) = self.repetition {
+            OASISFile::write_repetition(writer, rep)?;
+        }
         Ok(())
     }
 }

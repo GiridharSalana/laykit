@@ -741,10 +741,8 @@ impl GDSIIFile {
             self.library_name.as_bytes(),
         )?;
 
-        // UNITS
-        let mut units_data = Vec::new();
-        units_data.extend_from_slice(&Self::format_real8(self.units.0));
-        units_data.extend_from_slice(&Self::format_real8(self.units.1));
+        // UNITS (gdstk encoding)
+        let units_data = Self::format_units(self.units.0, self.units.1);
         Self::write_record(writer, 0x03, DataType::EightByteReal, &units_data)?;
 
         // REFLIBS - Referenced libraries
@@ -900,48 +898,51 @@ impl GDSIIFile {
         Ok(String::from_utf8_lossy(&data[..end]).into_owned())
     }
 
+    /// Decode GDSII 8-byte real (gdstk `gdsii_real_to_double`).
     fn parse_real8(data: &[u8]) -> Result<f64, Box<dyn std::error::Error>> {
         if data.len() < 8 {
             return Err("Insufficient data for real8".into());
         }
-
-        // GDSII real8 format: sign(1bit) + exponent(7bits) + mantissa(56bits)
-        let bytes = [
+        let bits = u64::from_be_bytes([
             data[0], data[1], data[2], data[3], data[4], data[5], data[6], data[7],
-        ];
-        let bits = u64::from_be_bytes(bytes);
-
-        let sign = if (bits & 0x8000000000000000) != 0 {
-            -1.0
-        } else {
-            1.0
-        };
-        let exponent = ((bits >> 56) & 0x7F) as i32 - 64;
-        let mantissa = (bits & 0x00FFFFFFFFFFFFFF) as f64 / (1u64 << 56) as f64;
-
-        Ok(sign * mantissa * 16f64.powi(exponent))
+        ]);
+        Ok(Self::real8_to_double(bits))
     }
 
+    /// Encode GDSII 8-byte real (gdstk `gdsii_real_from_double`).
     fn format_real8(value: f64) -> [u8; 8] {
-        if value == 0.0 {
-            return [0; 8];
+        Self::real8_from_double(value).to_be_bytes()
+    }
+
+    fn real8_to_double(real: u64) -> f64 {
+        let exponent = ((real & 0x7F00000000000000) >> 54) as i64 - 256;
+        let mantissa = (real & 0x00FFFFFFFFFFFFFF) as f64 / 72057594037927936.0;
+        let result = mantissa * 2f64.powf(exponent as f64);
+        if real & 0x8000000000000000 != 0 {
+            -result
+        } else {
+            result
         }
+    }
 
-        let sign_bit = if value < 0.0 { 0x80 } else { 0x00 };
-        let abs_value = value.abs();
-
-        // Convert to base-16 exponent
-        let exponent = (abs_value.log2() / 4.0).floor() as i32;
-        let mantissa = abs_value / 16f64.powi(exponent);
-
-        let exp_byte = ((exponent + 64) as u8) | sign_bit;
-        let mant_bits = (mantissa * (1u64 << 56) as f64) as u64;
-
-        let mut result = [0u8; 8];
-        result[0] = exp_byte;
-        result[1..8].copy_from_slice(&mant_bits.to_be_bytes()[1..8]);
-
-        result
+    fn real8_from_double(value: f64) -> u64 {
+        if value == 0.0 {
+            return 0;
+        }
+        let mut sign_byte = 0u8;
+        let mut v = value;
+        if v < 0.0 {
+            sign_byte = 0x80;
+            v = -v;
+        }
+        let fexp = 0.25 * v.log2();
+        let mut exponent = fexp.ceil();
+        if exponent == fexp {
+            exponent += 1.0;
+        }
+        let mantissa = (v * 16f64.powf(14.0 - exponent)) as u64;
+        sign_byte = sign_byte.wrapping_add((64.0 + exponent) as u8);
+        ((sign_byte as u64) << 56) | (mantissa & 0x00FFFFFFFFFFFFFF)
     }
 
     fn parse_time(data: &[u8]) -> Result<(GDSTime, GDSTime), Box<dyn std::error::Error>> {
@@ -1003,15 +1004,35 @@ impl GDSIIFile {
         Ok(points)
     }
 
-    fn parse_units(data: &[u8]) -> Result<(f64, f64), Box<dyn std::error::Error>> {
+    /// Parse GDSII UNITS record (gdstk-compatible).
+    ///
+    /// On disk: `(precision / user_unit, precision)` in meters — see gdstk `Library::write_gds`.
+    /// Returns `(user_unit_meters, database_unit_meters)`.
+    pub(crate) fn parse_units(data: &[u8]) -> Result<(f64, f64), Box<dyn std::error::Error>> {
         if data.len() < 16 {
             return Err("Insufficient data for units".into());
         }
 
-        let user_units = Self::parse_real8(&data[0..8])?;
-        let db_units = Self::parse_real8(&data[8..16])?;
+        let db_in_user = Self::parse_real8(&data[0..8])?;
+        let db_in_meters = Self::parse_real8(&data[8..16])?;
+        if db_in_user == 0.0 {
+            return Err("Invalid UNITS: zero user-unit ratio".into());
+        }
+        let user_units = db_in_meters / db_in_user;
+        Ok((user_units, db_in_meters))
+    }
 
-        Ok((user_units, db_units))
+    /// Write GDSII UNITS record from `(user_unit_meters, database_unit_meters)`.
+    fn format_units(user_unit: f64, db_unit: f64) -> [u8; 16] {
+        let ratio = if user_unit > 0.0 {
+            db_unit / user_unit
+        } else {
+            db_unit
+        };
+        let mut out = [0u8; 16];
+        out[0..8].copy_from_slice(&Self::format_real8(ratio));
+        out[8..16].copy_from_slice(&Self::format_real8(db_unit));
+        out
     }
 }
 

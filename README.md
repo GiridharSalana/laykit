@@ -15,7 +15,7 @@ A production-ready Rust library for reading, writing, and manipulating GDSII and
 cargo add laykit
 ```
 
-Or add to `Cargo.toml` manually (use the crates.io badge for the latest version):
+Or add to `Cargo.toml` manually:
 
 ```toml
 [dependencies]
@@ -73,10 +73,8 @@ oasis.write_to_file("output.oas")?;
 
 ## Documentation
 
-- **User guide (mdBook)** — primary docs: [giridharsalana.github.io/laykit](https://giridharsalana.github.io/laykit)  
-  Built from [`book/`](book/) on each release tag; includes getting started, GDSII/OASIS, conversion, and examples.
-- **API reference (rustdoc on docs.rs)** — [docs.rs/laykit](https://docs.rs/laykit/)  
-  Also mirrored under [giridharsalana.github.io/laykit/api](https://giridharsalana.github.io/laykit/api/) after each release.
+- **User guide (mdBook)**: [giridharsalana.github.io/laykit](https://giridharsalana.github.io/laykit)
+- **API reference**: [docs.rs/laykit](https://docs.rs/laykit/) · [on GitHub Pages](https://giridharsalana.github.io/laykit/api/)
 
 ## Testing
 
@@ -84,7 +82,6 @@ oasis.write_to_file("output.oas")?;
 cargo test
 ```
 
-Run `./tests/run_all_tests.sh` locally before tagging a release. Pushing a version tag (e.g. `v0.0.5`) runs the full test, docs, GitHub release, and crates.io publish pipeline.
 
 ## License
 

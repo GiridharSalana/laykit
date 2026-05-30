@@ -82,6 +82,7 @@ fn create_sample_oasis() -> OASISFile {
     // Create TOP cell
     let mut top = OASISCell {
         name: "TOP".to_string(),
+        name_ref: None,
         elements: Vec::new(),
     };
 

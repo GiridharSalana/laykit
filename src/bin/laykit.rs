@@ -22,6 +22,7 @@ fn main() {
         "convert" => handle_convert(&args[2..]),
         "info" => handle_info(&args[2..]),
         "validate" => handle_validate(&args[2..]),
+        "geom" => process::exit(laykit::geom_cli::run(&args[2..])),
         "help" | "--help" | "-h" => print_usage(),
         _ => {
             eprintln!("Unknown command: {}", command);
@@ -44,6 +45,7 @@ fn print_usage() {
     println!("    convert <INPUT> <OUTPUT>    Convert between GDSII and OASIS formats");
     println!("    info <FILE>                 Display file information");
     println!("    validate <FILE>             Validate file format and structure");
+    println!("    geom <boolean|offset|slice|inside>  Geometry ops (JSON stdin, parity tests)");
     println!("    help                        Show this help message");
     println!();
     println!("EXAMPLES:");
@@ -116,14 +118,8 @@ fn handle_convert(args: &[String]) {
     let result = match (input_format, output_format) {
         (FileFormat::GDSII, FileFormat::OASIS) => convert_gds_to_oas(input_path, output_path),
         (FileFormat::OASIS, FileFormat::GDSII) => convert_oas_to_gds(input_path, output_path),
-        (FileFormat::GDSII, FileFormat::GDSII) => {
-            eprintln!("Warning: Both files are GDSII format. Copying...");
-            copy_file(input_path, output_path)
-        }
-        (FileFormat::OASIS, FileFormat::OASIS) => {
-            eprintln!("Warning: Both files are OASIS format. Copying...");
-            copy_file(input_path, output_path)
-        }
+        (FileFormat::GDSII, FileFormat::GDSII) => rewrite_gds(input_path, output_path),
+        (FileFormat::OASIS, FileFormat::OASIS) => rewrite_oasis(input_path, output_path),
         (FileFormat::Unknown, _) => {
             eprintln!("Error: Cannot determine input file format");
             eprintln!("       File does not appear to be valid GDSII or OASIS");
@@ -172,9 +168,24 @@ fn convert_oas_to_gds(input: &str, output: &str) -> Result<(), Box<dyn std::erro
     }
 }
 
-fn copy_file(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
-    fs::copy(input, output)?;
-    Ok(())
+fn rewrite_gds(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+    match load(input)? {
+        LayoutFile::Gdsii(gds) => {
+            gds.write_to_file(output)?;
+            Ok(())
+        }
+        LayoutFile::Oasis(_) => Err("internal error: expected GDSII input".into()),
+    }
+}
+
+fn rewrite_oasis(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
+    match load(input)? {
+        LayoutFile::Oasis(oasis) => {
+            oasis.write_to_file(output)?;
+            Ok(())
+        }
+        LayoutFile::Gdsii(_) => Err("internal error: expected OASIS input".into()),
+    }
 }
 
 fn handle_info(args: &[String]) {

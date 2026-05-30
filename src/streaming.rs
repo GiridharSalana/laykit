@@ -1,7 +1,7 @@
 // Streaming parser for large GDSII and OASIS files
 // Allows processing files >1GB without loading entire file into memory
 
-use crate::gdsii::{GDSElement, GDSStructure, GDSTime};
+use crate::gdsii::{GDSElement, GDSIIFile, GDSStructure, GDSTime};
 use std::io::{Read, Seek, SeekFrom};
 
 /// Callback trait for processing structures as they are read
@@ -157,29 +157,9 @@ impl<R: Read + Seek> StreamingGDSIIReader<R> {
             return Err("Invalid GDSII file: expected UNITS record".into());
         }
 
-        // Read two Real8 values
-        let user_unit = Self::read_real8(reader)?;
-        let db_unit = Self::read_real8(reader)?;
-
-        Ok((user_unit, db_unit))
-    }
-
-    fn read_real8(reader: &mut R) -> Result<f64, Box<dyn std::error::Error>> {
-        let mut buf = [0u8; 8];
-        reader.read_exact(&mut buf)?;
-
-        // GDSII Real8 format: [sign:1][exponent:7][mantissa:56]
-        let sign = if (buf[0] & 0x80) != 0 { -1.0 } else { 1.0 };
-        let exponent = (buf[0] & 0x7F) as i32 - 64;
-
-        let mut mantissa = 0u64;
-        for &byte in buf.iter().skip(1) {
-            mantissa = (mantissa << 8) | (byte as u64);
-        }
-
-        let mantissa_f = mantissa as f64 / (1u64 << 56) as f64;
-
-        Ok(sign * mantissa_f * 16.0_f64.powi(exponent))
+        let mut data = [0u8; 16];
+        reader.read_exact(&mut data)?;
+        GDSIIFile::parse_units(&data)
     }
 
     fn read_timestamp(&mut self) -> Result<GDSTime, Box<dyn std::error::Error>> {

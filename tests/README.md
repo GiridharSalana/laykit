@@ -54,7 +54,18 @@ python3 gdstk_validation.py
 
 ## Test Coverage
 
-The validation suite tests:
+### Strict parity (`gdstk_parity_report.py`)
+
+16 fingerprint tests: GDS/OAS round-trips, hierarchy, transforms, FlexPath,
+properties, labels, and reading gdstk OASIS (modal geometry + CBLOCK). Run:
+
+```bash
+cd tests && uv run python3 gdstk_parity_report.py
+```
+
+See [docs/PARITY.md](../docs/PARITY.md) for full gdstk vs LayKit scope.
+
+### Smoke validation (`gdstk_validation.py`)
 
 1. **Read Compatibility**: LayKit reading gdstk-created files
 2. **Write Compatibility**: gdstk reading LayKit-created files
@@ -67,7 +78,7 @@ The validation suite tests:
 
 These tests run automatically in GitHub Actions after the Rust test suite passes.
 
-See `.github/workflows/ci.yml` for details.
+See `.github/workflows/release.yml` (runs on version tags).
 
 ## Troubleshooting
 

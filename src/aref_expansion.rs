@@ -14,12 +14,23 @@ pub fn expand_array_ref(aref: &ArrayRef) -> Vec<GDSElement> {
     let col_ref = aref.xy[1];
     let row_ref = aref.xy[2];
 
-    // Calculate spacing
-    let col_spacing_x = (col_ref.0 - origin.0) / aref.columns as i32;
-    let col_spacing_y = (col_ref.1 - origin.1) / aref.columns as i32;
-
-    let row_spacing_x = (row_ref.0 - origin.0) / aref.rows as i32;
-    let row_spacing_y = (row_ref.1 - origin.1) / aref.rows as i32;
+    // GDSII: P2 is last column in first row, P3 is last row in first column.
+    let (col_spacing_x, col_spacing_y) = if aref.columns > 1 {
+        (
+            (col_ref.0 - origin.0) / (aref.columns as i32 - 1),
+            (col_ref.1 - origin.1) / (aref.columns as i32 - 1),
+        )
+    } else {
+        (0, 0)
+    };
+    let (row_spacing_x, row_spacing_y) = if aref.rows > 1 {
+        (
+            (row_ref.0 - origin.0) / (aref.rows as i32 - 1),
+            (row_ref.1 - origin.1) / (aref.rows as i32 - 1),
+        )
+    } else {
+        (0, 0)
+    };
 
     let mut expanded = Vec::new();
 
@@ -112,11 +123,11 @@ mod tests {
         }
 
         if let GDSElement::StructRef(sref) = &expanded[1] {
-            assert_eq!(sref.xy, (100, 0)); // Second in first row
+            assert_eq!(sref.xy, (150, 0)); // Second in first row (300 / 2)
         }
 
         if let GDSElement::StructRef(sref) = &expanded[3] {
-            assert_eq!(sref.xy, (0, 100)); // First in second row
+            assert_eq!(sref.xy, (0, 200)); // First in second row (200 / 1)
         }
     }
 

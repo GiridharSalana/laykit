@@ -11,6 +11,10 @@
 *~
 .DS_Store
 
+# Python
+__pycache__/
+.venv/
+
 # Generated test files
 *.gds
 *.oas

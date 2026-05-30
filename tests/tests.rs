@@ -54,6 +54,69 @@ mod converter_tests {
         let oasis = converter::gdsii_to_oasis(&gds).unwrap();
         assert_eq!(oasis.cells.len(), 1);
         assert_eq!(oasis.cells[0].name, "TOP");
+        assert_eq!(oasis.library_name, "TEST");
+    }
+
+    #[test]
+    fn test_aref_expands_to_oasis_placements() {
+        use laykit::ArrayRef;
+        use laykit::Repetition;
+        use laykit::converter::{gdsii_to_oasis, oasis_to_gdsii};
+
+        let mut gds = GDSIIFile::new("AREF_LIB".to_string());
+        gds.structures.push(GDSStructure {
+            name: "MAIN".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+            strclass: None,
+            elements: vec![GDSElement::ArrayRef(ArrayRef {
+                sname: "UNIT".to_string(),
+                columns: 3,
+                rows: 2,
+                xy: vec![(0, 0), (200, 0), (0, 100)],
+                strans: None,
+                elflags: None,
+                plex: None,
+                properties: Vec::new(),
+            })],
+        });
+        gds.structures.push(GDSStructure {
+            name: "UNIT".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+            strclass: None,
+            elements: Vec::new(),
+        });
+
+        let oasis = gdsii_to_oasis(&gds).unwrap();
+        let placement = oasis.cells[0]
+            .elements
+            .iter()
+            .find_map(|e| {
+                if let OASISElement::Placement(p) = e {
+                    Some(p)
+                } else {
+                    None
+                }
+            })
+            .expect("AREF should become one placement with repetition");
+        assert!(matches!(
+            placement.repetition,
+            Some(Repetition::Matrix {
+                x_count: 3,
+                y_count: 2,
+                ..
+            })
+        ));
+
+        let back = oasis_to_gdsii(&oasis).unwrap();
+        assert_eq!(back.library_name, "AREF_LIB");
+        let arefs = back.structures[0]
+            .elements
+            .iter()
+            .filter(|e| matches!(e, GDSElement::ArrayRef(_)))
+            .count();
+        assert_eq!(arefs, 1);
     }
 }
 
@@ -93,6 +156,7 @@ mod load_tests {
         let mut oasis = OASISFile::new();
         oasis.cells.push(OASISCell {
             name: "TOP".to_string(),
+            name_ref: None,
             elements: vec![OASISElement::Rectangle(Rectangle {
                 layer: 1,
                 datatype: 0,
@@ -494,6 +558,7 @@ mod oasis_tests {
 
         let mut cell = OASISCell {
             name: "SIMPLE".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -521,6 +586,7 @@ mod oasis_tests {
 
         let mut cell = OASISCell {
             name: "RECT_CELL".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -569,6 +635,7 @@ mod oasis_tests {
 
         let mut cell = OASISCell {
             name: "POLY_CELL".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -609,6 +676,7 @@ mod oasis_tests {
 
         let mut cell = OASISCell {
             name: "PATH_CELL".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -650,6 +718,7 @@ mod oasis_tests {
 
         let mut cell = OASISCell {
             name: "MIXED".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -718,6 +787,7 @@ mod oasis_tests {
 
         let cell = OASISCell {
             name: "EMPTY".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -738,6 +808,7 @@ mod oasis_tests {
 
         let mut cell = OASISCell {
             name: "LARGE".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -777,6 +848,7 @@ mod oasis_tests {
 
         let mut cell = OASISCell {
             name: "NEGATIVE".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 
@@ -1542,6 +1614,7 @@ mod utf8_handling_tests {
 
         let mut cell = OASISCell {
             name: "TestCell".to_string(),
+            name_ref: None,
             elements: Vec::new(),
         };
 

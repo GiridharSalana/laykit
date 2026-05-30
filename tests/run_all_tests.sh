@@ -77,6 +77,15 @@ if [ "$GDSTK_AVAILABLE" = true ]; then
         exit 1
     fi
     echo ""
+    echo "Step 5: Running strict gdstk parity report..."
+    echo "------------------------------------------------"
+    if (cd tests && uv run python3 gdstk_parity_report.py 2>/dev/null) || python3 tests/gdstk_parity_report.py; then
+        echo -e "${GREEN}✓ Parity report passed${NC}"
+    else
+        echo -e "${RED}✗ Parity report failed${NC}"
+        exit 1
+    fi
+    echo ""
 fi
 
 # Summary

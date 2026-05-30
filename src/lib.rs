@@ -11,6 +11,7 @@
 //! - **Streaming Parser** - Process large files without loading into memory
 //! - **CLI Tool** - Command-line utility for file operations
 //! - **Property Utilities** - Enhanced property management and builders
+//! - **Boolean / offset** - Clipper2-backed (`boolean`, `offset`), same engine family as gdstk
 //! - **AREF Expansion** - Array reference expansion utilities
 //! - **Minimal Dependencies** - `miniz_oxide` for OASIS CBLOCK decompression; otherwise pure Rust
 //! - **Memory Safe** - Leverages Rust's ownership system
@@ -111,7 +112,9 @@ pub mod aref_expansion;
 pub mod boolean_ops;
 pub mod converter;
 pub mod curve;
+pub mod clipper_polytree;
 pub mod error;
+pub mod geom_cli;
 pub mod flexpath;
 pub mod format_detection;
 pub mod gdsii;
@@ -124,7 +127,11 @@ pub mod streaming;
 pub mod topology;
 
 pub use aref_expansion::*;
-pub use boolean_ops::{Axis, BooleanOp, boolean, convex_hull, offset, slice};
+pub use boolean_ops::{
+    Axis, BooleanOp, DEFAULT_PRECISION, boolean, boolean_with_precision, convex_hull, offset,
+    offset_with_precision, slice, slice_at_positions, slice_at_positions_with_precision,
+    slice_with_precision,
+};
 pub use curve::{Curve, ellipse, regular_polygon, rounded_rectangle, spiral, star};
 pub use error::LaykitError;
 pub use flexpath::{EndCap, FlexPath, Join, RobustPath};
