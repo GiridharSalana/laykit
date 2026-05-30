@@ -324,7 +324,7 @@ Look for issues labeled:
 3. Tag and push the tag: `git tag v0.x.y && git push origin v0.x.y`
 4. The [release workflow](https://github.com/GiridharSalana/laykit/blob/main/.github/workflows/release.yml) runs tests, builds docs, creates a GitHub release, and publishes to crates.io.
 
-README badges (crates.io, docs.rs) update automatically after crates.io publish — do not edit version numbers in `README.md`.
+README badges: crates.io and docs.rs version labels update automatically after publish; the mdBook link points at GitHub Pages and is redeployed from the same release tag. Do not edit version numbers in `README.md`.
 
 ## Communication
 

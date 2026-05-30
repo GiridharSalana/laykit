@@ -3,10 +3,17 @@
 A production-ready Rust library for reading, writing, and manipulating GDSII and OASIS IC layout files.
 
 [![crates.io](https://img.shields.io/crates/v/laykit.svg)](https://crates.io/crates/laykit)
-[![docs.rs](https://docs.rs/laykit/badge.svg)](https://docs.rs/laykit/)
+[![book](https://img.shields.io/badge/guide-mdBook-orange)](https://giridharsalana.github.io/laykit/)
+[![API on docs.rs](https://docs.rs/laykit/badge.svg)](https://docs.rs/laykit/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-The crates.io and docs.rs badges update automatically when you publish a new version — no manual version edits in this file are required.
+| Badge | What it links to | Updates when |
+|-------|------------------|--------------|
+| crates.io | Latest crate on crates.io | You publish a version tag (`v*.*.*`) |
+| mdBook | [User guide](https://giridharsalana.github.io/laykit/) (tutorials, formats, examples) | Same tag deploys docs to GitHub Pages |
+| docs.rs | [Rust API reference](https://docs.rs/laykit/) | Same crates.io publish |
+
+You only bump `version` in `Cargo.toml` at release time — do not edit version numbers in this README.
 
 ---
 
@@ -74,8 +81,10 @@ oasis.write_to_file("output.oas")?;
 
 ## Documentation
 
-- **Book**: [giridharsalana.github.io/laykit](https://giridharsalana.github.io/laykit)
-- **API reference**: [docs.rs/laykit](https://docs.rs/laykit/) (tracks latest published crate)
+- **User guide (mdBook)** — primary docs: [giridharsalana.github.io/laykit](https://giridharsalana.github.io/laykit)  
+  Built from [`book/`](book/) on each release tag; includes getting started, GDSII/OASIS, conversion, and examples.
+- **API reference (rustdoc on docs.rs)** — [docs.rs/laykit](https://docs.rs/laykit/)  
+  Also mirrored under [giridharsalana.github.io/laykit/api](https://giridharsalana.github.io/laykit/api/) after each release.
 
 ## Testing
 
