@@ -45,6 +45,9 @@ jobs:
       - name: Run doc tests
         run: cargo test --doc
 
+      - name: Build release binary
+        run: cargo build --release
+
       - name: Set up uv
         uses: astral-sh/setup-uv@v7
         with:
