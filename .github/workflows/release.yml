@@ -13,16 +13,25 @@ jobs:
   verify:
     name: Verify
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     env:
       RUSTFLAGS: -D warnings
       RUSTDOCFLAGS: -D warnings
     steps:
       - uses: actions/checkout@v4
 
+      - name: Set version from tag
+        shell: bash
+        run: bash .github/scripts/release-version.sh
+
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
+
+      - name: Refresh lockfile
+        run: cargo generate-lockfile
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -43,20 +52,34 @@ jobs:
           enable-cache: true
           cache-dependency-glob: "tests/pyproject.toml"
 
-      - name: Run gdstk cross-validation tests
+      - name: Run cross-validation tests
         working-directory: tests
         run: uv run gdstk_validation.py
 
-      - name: Verify version matches tag
+      - name: Sync version on main
+        shell: bash
         run: |
-          TAG_VERSION="${GITHUB_REF#refs/tags/}"
-          VERSION="${TAG_VERSION#v}"
-          CARGO_VERSION=$(grep -E '^version\s*=' Cargo.toml | sed -E 's/^version\s*=\s*"([^"]+)".*/\1/')
-          if [ "$CARGO_VERSION" != "$VERSION" ]; then
-            echo "Version mismatch: Cargo.toml=$CARGO_VERSION, tag=$TAG_VERSION"
-            exit 1
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin main
+          git checkout main
+          bash .github/scripts/release-version.sh
+          cargo generate-lockfile
+          git add Cargo.toml Cargo.lock
+          if git diff --staged --quiet; then
+            echo "main already at version ${VERSION}"
+          else
+            git commit -m "chore: release version ${VERSION}"
+            git push origin main
           fi
-          echo "Publishing version $CARGO_VERSION"
+
+      - name: Upload versioned manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-manifest
+          path: |
+            Cargo.toml
+            Cargo.lock
 
   build-binaries:
     name: Build Release Binaries (${{ matrix.artifact_name }})
@@ -80,6 +103,11 @@ jobs:
             artifact_name: laykit-macos-arm64
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download versioned manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -135,6 +163,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download versioned manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
@@ -237,6 +270,11 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@v4
+
+      - name: Download versioned manifest
+        uses: actions/download-artifact@v4
+        with:
+          name: release-manifest
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
