@@ -3,14 +3,12 @@
 // gdstk uses Clipper PolyTree + `link_holes` in `clipper_tools.cpp`. LayKit uses
 // the same via `clipper2c-sys` (`clipper_clipper64_execute_tree_with_open`).
 
-use crate::clipper_polytree::{
-    boolean_polytree, scaling_from_precision, slice_polytree,
-};
+use crate::clipper_polytree::{boolean_polytree, scaling_from_precision, slice_polytree};
+use clipper2::{EndType, JoinType, Milli, Paths, inflate, simplify};
 use clipper2c_sys::{
     ClipperClipType_DIFFERENCE, ClipperClipType_INTERSECTION, ClipperClipType_UNION,
     ClipperClipType_XOR,
 };
-use clipper2::{inflate, simplify, EndType, JoinType, Milli, Paths};
 
 /// Polygon set: a list of polygons, each a list of (x, y) points.
 type PolySet = Vec<Vec<(f64, f64)>>;
@@ -144,11 +142,7 @@ pub fn sutherland_hodgman(subject: &[(f64, f64)], clip: &[(f64, f64)]) -> Vec<(f
     if subject.is_empty() || clip.is_empty() {
         return Vec::new();
     }
-    let result = boolean(
-        &[subject.to_vec()],
-        &[clip.to_vec()],
-        BooleanOp::And,
-    );
+    let result = boolean(&[subject.to_vec()], &[clip.to_vec()], BooleanOp::And);
     result.into_iter().next().unwrap_or_default()
 }
 
@@ -192,9 +186,7 @@ pub fn convex_hull(points: &[(f64, f64)]) -> Vec<(f64, f64)> {
 
     let mut lower = Vec::new();
     for p in &pts {
-        while lower.len() >= 2
-            && cross(lower[lower.len() - 2], lower[lower.len() - 1], *p) <= 0.0
-        {
+        while lower.len() >= 2 && cross(lower[lower.len() - 2], lower[lower.len() - 1], *p) <= 0.0 {
             lower.pop();
         }
         lower.push(*p);
@@ -202,9 +194,7 @@ pub fn convex_hull(points: &[(f64, f64)]) -> Vec<(f64, f64)> {
 
     let mut upper = Vec::new();
     for p in pts.iter().rev() {
-        while upper.len() >= 2
-            && cross(upper[upper.len() - 2], upper[upper.len() - 1], *p) <= 0.0
-        {
+        while upper.len() >= 2 && cross(upper[upper.len() - 2], upper[upper.len() - 1], *p) <= 0.0 {
             upper.pop();
         }
         upper.push(*p);
@@ -267,7 +257,11 @@ mod tests {
             .iter()
             .map(|p| crate::geometry::polygon_area(p))
             .sum();
-        assert!(total_area < 1.0, "Expected empty difference, area {}", total_area);
+        assert!(
+            total_area < 1.0,
+            "Expected empty difference, area {}",
+            total_area
+        );
     }
 
     #[test]
@@ -304,13 +298,7 @@ mod tests {
 
     #[test]
     fn test_convex_hull() {
-        let pts = vec![
-            (0.0, 0.0),
-            (5.0, 0.0),
-            (5.0, 5.0),
-            (0.0, 5.0),
-            (2.5, 2.5),
-        ];
+        let pts = vec![(0.0, 0.0), (5.0, 0.0), (5.0, 5.0), (0.0, 5.0), (2.5, 2.5)];
         let hull = convex_hull(&pts);
         assert_eq!(hull.len(), 4);
     }

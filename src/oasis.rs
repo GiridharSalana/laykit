@@ -172,8 +172,7 @@ pub struct Placement {
     pub properties: Vec<Property>,
 }
 
-#[derive(Debug, Clone)]
-#[derive(Default)]
+#[derive(Debug, Clone, Default)]
 struct OasisReadModal {
     absolute: bool,
     placement_pos: (i64, i64),
@@ -411,10 +410,9 @@ impl OASISFile {
 
         if oasis.library_name.is_empty()
             && oasis.names.prop_names.get(&LIBNAME_PROP_REF) == Some(&LIBNAME_PROP_NAME.to_string())
+            && let Some(name) = oasis.names.prop_strings.get(&LIBNAME_PROP_REF)
         {
-            if let Some(name) = oasis.names.prop_strings.get(&LIBNAME_PROP_REF) {
-                oasis.library_name = name.clone();
-            }
+            oasis.library_name = name.clone();
         }
 
         Self::resolve_deferred_cell_names(&mut oasis);
@@ -427,12 +425,11 @@ impl OASISFile {
         for cell in &mut oasis.cells {
             for element in &mut cell.elements {
                 if let OASISElement::Text(t) = element {
-                    if t.string.is_empty() {
-                        if let Some(ref_num) = t.string_ref {
-                            if let Some(s) = oasis.names.text_strings.get(&ref_num) {
-                                t.string = s.clone();
-                            }
-                        }
+                    if t.string.is_empty()
+                        && let Some(ref_num) = t.string_ref
+                        && let Some(s) = oasis.names.text_strings.get(&ref_num)
+                    {
+                        t.string = s.clone();
                     }
                     t.string_ref = None;
                 }
@@ -493,11 +490,11 @@ impl OASISFile {
 
         for cell in &self.cells {
             for element in &cell.elements {
-                if let OASISElement::Text(t) = element {
-                    if !names.text_strings.values().any(|s| s == &t.string) {
-                        let id = names.text_strings.len() as u32;
-                        names.text_strings.insert(id, t.string.clone());
-                    }
+                if let OASISElement::Text(t) = element
+                    && !names.text_strings.values().any(|s| s == &t.string)
+                {
+                    let id = names.text_strings.len() as u32;
+                    names.text_strings.insert(id, t.string.clone());
                 }
             }
         }
@@ -566,8 +563,10 @@ impl OASISFile {
             name_ref: Some(ref_num),
             elements: Vec::new(),
         };
-        let mut modal = OasisReadModal::default();
-        modal.absolute = true;
+        let mut modal = OasisReadModal {
+            absolute: true,
+            ..Default::default()
+        };
         Self::read_cell_body(cursor, names, &mut modal, factor, &mut cell)?;
         Ok(cell)
     }
@@ -583,8 +582,10 @@ impl OASISFile {
             name_ref: None,
             elements: Vec::new(),
         };
-        let mut modal = OasisReadModal::default();
-        modal.absolute = true;
+        let mut modal = OasisReadModal {
+            absolute: true,
+            ..Default::default()
+        };
         Self::read_cell_body(cursor, names, &mut modal, factor, &mut cell)?;
         Ok(cell)
     }
@@ -734,7 +735,7 @@ impl OASISFile {
                         cell.elements.push(OASISElement::Path(elem));
                     }
                 }
-                23 | 24 | 25 => {
+                23..=25 => {
                     if let Ok(elem) = Self::read_trapezoid(cursor) {
                         cell.elements.push(OASISElement::Trapezoid(elem));
                     }
@@ -758,12 +759,14 @@ impl OASISFile {
                     let _ = Self::read_unsigned(cursor);
                     let _ = Self::read_string(cursor);
                 }
-                32 | 33 | 34 => {
+                32..=34 => {
                     // XELEMENT / XGEOMETRY / CBLOCK (gdstk writes geometry in 34)
                     if let Ok(chunk) = Self::read_cblock(cursor) {
                         let mut sub = Cursor::new(chunk);
-                        let mut sub_modal = OasisReadModal::default();
-                        sub_modal.absolute = modal.absolute;
+                        let mut sub_modal = OasisReadModal {
+                            absolute: modal.absolute,
+                            ..Default::default()
+                        };
                         Self::read_cell_body(&mut sub, names, &mut sub_modal, factor, cell)?;
                     }
                 }
@@ -1077,12 +1080,19 @@ impl OASISFile {
         let (string, string_ref) = if info & 0x40 != 0 {
             if info & 0x20 != 0 {
                 let ref_num = Self::read_unsigned(cursor)? as u32;
-                let s = names.text_strings.get(&ref_num).cloned().unwrap_or_default();
-                (s, if names.text_strings.contains_key(&ref_num) {
-                    None
-                } else {
-                    Some(ref_num)
-                })
+                let s = names
+                    .text_strings
+                    .get(&ref_num)
+                    .cloned()
+                    .unwrap_or_default();
+                (
+                    s,
+                    if names.text_strings.contains_key(&ref_num) {
+                        None
+                    } else {
+                        Some(ref_num)
+                    },
+                )
             } else {
                 (Self::read_string(cursor)?, None)
             }
@@ -1217,7 +1227,11 @@ impl OASISFile {
             } else {
                 None
             },
-            angle: if angle.abs() > 1e-12 { Some(angle) } else { None },
+            angle: if angle.abs() > 1e-12 {
+                Some(angle)
+            } else {
+                None
+            },
             mirror,
             repetition,
             properties: Vec::new(),

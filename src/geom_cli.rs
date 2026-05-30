@@ -1,8 +1,8 @@
 //! JSON geometry CLI for gdstk parity tests (`laykit geom ...`).
 
 use crate::{
-    BooleanOp, boolean_with_precision, inside, offset_with_precision, slice_at_positions_with_precision,
-    Axis,
+    Axis, BooleanOp, boolean_with_precision, inside, offset_with_precision,
+    slice_at_positions_with_precision,
 };
 use std::io::{self, Read, Write};
 
@@ -106,12 +106,8 @@ pub fn run(args: &[String]) -> i32 {
                         return 1;
                     }
                 };
-                let result = boolean_with_precision(
-                    &to_polys(req.a),
-                    &to_polys(req.b),
-                    op,
-                    precision,
-                );
+                let result =
+                    boolean_with_precision(&to_polys(req.a), &to_polys(req.b), op, precision);
                 let resp = BooleanResponse {
                     polygons: from_polys(result),
                 };
@@ -130,12 +126,8 @@ pub fn run(args: &[String]) -> i32 {
             Ok(req) => {
                 let tol = req.tolerance.unwrap_or(1e-3);
                 let precision = req.precision.unwrap_or(1e-3);
-                let result = offset_with_precision(
-                    &to_polys(req.polygons),
-                    req.distance,
-                    tol,
-                    precision,
-                );
+                let result =
+                    offset_with_precision(&to_polys(req.polygons), req.distance, tol, precision);
                 let resp = BooleanResponse {
                     polygons: from_polys(result),
                 };
@@ -167,10 +159,7 @@ pub fn run(args: &[String]) -> i32 {
                     precision,
                 );
                 let resp = SliceResponse {
-                    strips: strips
-                        .into_iter()
-                        .map(|strip| from_polys(strip))
-                        .collect(),
+                    strips: strips.into_iter().map(from_polys).collect(),
                 };
                 if serde_json::to_writer(io::stdout().lock(), &resp).is_err() {
                     return 1;

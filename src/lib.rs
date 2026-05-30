@@ -110,14 +110,14 @@
 
 pub mod aref_expansion;
 pub mod boolean_ops;
+pub mod clipper_polytree;
 pub mod converter;
 pub mod curve;
-pub mod clipper_polytree;
 pub mod error;
-pub mod geom_cli;
 pub mod flexpath;
 pub mod format_detection;
 pub mod gdsii;
+pub mod geom_cli;
 pub mod geometry;
 pub mod layout;
 pub mod library;

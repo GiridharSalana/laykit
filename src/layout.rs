@@ -26,6 +26,7 @@ pub struct SaveOptions {
 }
 
 /// A layout file in either native GDSII or OASIS representation.
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum LayoutFile {
     Gdsii(GDSIIFile),

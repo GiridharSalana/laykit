@@ -2,13 +2,13 @@
 
 use crate::curve::ellipse;
 use crate::gdsii::ArrayRef;
-use crate::oasis::Repetition;
 use crate::gdsii::{
-    Boundary, GDSElement, GDSBox, GDSIIFile, GDSProperty, GDSStructure, GDSTime, GPath, GText,
+    Boundary, GDSBox, GDSElement, GDSIIFile, GDSProperty, GDSStructure, GDSTime, GPath, GText,
     Node, StructRef,
 };
+use crate::oasis::Repetition;
 use crate::oasis::{
-    Circle, CTrapezoid, OASISCell, OASISElement, OASISFile, OPath, OText, Placement, Polygon,
+    CTrapezoid, Circle, OASISCell, OASISElement, OASISFile, OPath, OText, Placement, Polygon,
     Property, PropertyValue, Rectangle, Trapezoid,
 };
 
@@ -162,18 +162,12 @@ fn placement_to_aref(
 ) -> Option<GDSElement> {
     let origin = (placement.x as i32, placement.y as i32);
     let col_ref = if columns > 1 {
-        (
-            origin.0 + (columns as i32 - 1) * x_space as i32,
-            origin.1,
-        )
+        (origin.0 + (columns as i32 - 1) * x_space as i32, origin.1)
     } else {
         origin
     };
     let row_ref = if rows > 1 {
-        (
-            origin.0,
-            origin.1 + (rows as i32 - 1) * y_space as i32,
-        )
+        (origin.0, origin.1 + (rows as i32 - 1) * y_space as i32)
     } else {
         origin
     };
@@ -363,12 +357,7 @@ fn node_to_oasis_polygon(node: &Node) -> Option<OASISElement> {
     if node.xy.len() < 3 {
         return None;
     }
-    boundary_xy_to_oasis_polygon(
-        node.layer,
-        node.nodetype,
-        &node.xy,
-        &node.properties,
-    )
+    boundary_xy_to_oasis_polygon(node.layer, node.nodetype, &node.xy, &node.properties)
 }
 
 fn box_to_oasis(box_elem: &GDSBox) -> Option<OASISElement> {
@@ -491,10 +480,9 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 x_space,
                 y_space,
             }) = placement.repetition
+                && (x_count > 1 || y_count > 1)
             {
-                if x_count > 1 || y_count > 1 {
-                    return placement_to_aref(placement, x_count, y_count, x_space, y_space);
-                }
+                return placement_to_aref(placement, x_count, y_count, x_space, y_space);
             }
             let strans = placement_strans(placement);
             Some(GDSElement::StructRef(StructRef {
@@ -574,10 +562,10 @@ fn circle_to_boundary(circle: &Circle) -> Option<Boundary> {
         .iter()
         .map(|(px, py)| (px.round() as i32, py.round() as i32))
         .collect();
-    if xy.first() != xy.last() {
-        if let Some(&first) = xy.first() {
-            xy.push(first);
-        }
+    if xy.first() != xy.last()
+        && let Some(&first) = xy.first()
+    {
+        xy.push(first);
     }
     Some(Boundary {
         layer: circle.layer as i16,

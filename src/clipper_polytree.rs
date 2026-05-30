@@ -2,14 +2,15 @@
 
 use crate::geometry::polygon_signed_area;
 use clipper2c_sys::{
-    clipper_allocate, clipper_clipper64, clipper_clipper64_add_clip, clipper_clipper64_add_subject,
-    clipper_clipper64_execute_tree_with_open, clipper_clipper64_size, clipper_delete_clipper64,
-    clipper_delete_path64, clipper_delete_paths64, clipper_delete_polytree64,
-    clipper_path64_get_point, clipper_path64_length, clipper_path64_of_points, clipper_path64_size,
-    clipper_paths64, clipper_paths64_of_paths, clipper_paths64_size, clipper_polytree64,
-    clipper_polytree64_count, clipper_polytree64_get_child, clipper_polytree64_is_hole,
-    clipper_polytree64_polygon, clipper_polytree64_size, ClipperClipType,
-    ClipperClipType_INTERSECTION, ClipperClipType_UNION, ClipperFillRule_NON_ZERO, ClipperPoint64,
+    ClipperClipType, ClipperClipType_INTERSECTION, ClipperClipType_UNION, ClipperFillRule_NON_ZERO,
+    ClipperPoint64, clipper_allocate, clipper_clipper64, clipper_clipper64_add_clip,
+    clipper_clipper64_add_subject, clipper_clipper64_execute_tree_with_open,
+    clipper_clipper64_size, clipper_delete_clipper64, clipper_delete_path64,
+    clipper_delete_paths64, clipper_delete_polytree64, clipper_path64_get_point,
+    clipper_path64_length, clipper_path64_of_points, clipper_path64_size, clipper_paths64,
+    clipper_paths64_of_paths, clipper_paths64_size, clipper_polytree64, clipper_polytree64_count,
+    clipper_polytree64_get_child, clipper_polytree64_is_hole, clipper_polytree64_polygon,
+    clipper_polytree64_size,
 };
 use std::ptr;
 
@@ -30,53 +31,64 @@ fn polygon_to_int_path(poly: &[(f64, f64)], scaling: f64) -> Vec<IntPoint> {
     let mut out = Vec::with_capacity(n);
     if reverse {
         for p in poly.iter().rev() {
-            out.push((p.0.mul_add(scaling, 0.0).round() as i64, p.1.mul_add(scaling, 0.0).round() as i64));
+            out.push((
+                p.0.mul_add(scaling, 0.0).round() as i64,
+                p.1.mul_add(scaling, 0.0).round() as i64,
+            ));
         }
     } else {
         for p in poly {
-            out.push((p.0.mul_add(scaling, 0.0).round() as i64, p.1.mul_add(scaling, 0.0).round() as i64));
+            out.push((
+                p.0.mul_add(scaling, 0.0).round() as i64,
+                p.1.mul_add(scaling, 0.0).round() as i64,
+            ));
         }
     }
     out
 }
 
 fn int_path_to_polygon(path: &[IntPoint], inv_scaling: f64) -> Vec<(f64, f64)> {
-    path
-        .iter()
+    path.iter()
         .map(|&(x, y)| (x as f64 * inv_scaling, y as f64 * inv_scaling))
         .collect()
 }
 
-unsafe fn path64_from_points(points: &[IntPoint]) -> *mut clipper2c_sys::ClipperPath64 { unsafe {
-    let mut pts: Vec<ClipperPoint64> = points
-        .iter()
-        .map(|&(x, y)| ClipperPoint64 { x, y })
-        .collect();
-    let mem = clipper_allocate(clipper_path64_size());
-    clipper_path64_of_points(mem, pts.as_mut_ptr(), pts.len())
-}}
-
-unsafe fn paths64_from_polygons(polys: &[Vec<IntPoint>]) -> *mut clipper2c_sys::ClipperPaths64 { unsafe {
-    let mut path_ptrs: Vec<*mut clipper2c_sys::ClipperPath64> = Vec::with_capacity(polys.len());
-    for poly in polys {
-        path_ptrs.push(path64_from_points(poly));
+unsafe fn path64_from_points(points: &[IntPoint]) -> *mut clipper2c_sys::ClipperPath64 {
+    unsafe {
+        let mut pts: Vec<ClipperPoint64> = points
+            .iter()
+            .map(|&(x, y)| ClipperPoint64 { x, y })
+            .collect();
+        let mem = clipper_allocate(clipper_path64_size());
+        clipper_path64_of_points(mem, pts.as_mut_ptr(), pts.len())
     }
-    let mem = clipper_allocate(clipper_paths64_size());
-    clipper_paths64_of_paths(mem, path_ptrs.as_mut_ptr(), path_ptrs.len())
-}}
+}
 
-unsafe fn extract_int_path(node: *mut clipper2c_sys::ClipperPolyTree64) -> Vec<IntPoint> { unsafe {
-    let mem = clipper_allocate(clipper_path64_size());
-    let path = clipper_polytree64_polygon(mem, node);
-    let len = clipper_path64_length(path);
-    let mut out = Vec::with_capacity(len);
-    for i in 0..len {
-        let pt = clipper_path64_get_point(path, i as i32);
-        out.push((pt.x, pt.y));
+unsafe fn paths64_from_polygons(polys: &[Vec<IntPoint>]) -> *mut clipper2c_sys::ClipperPaths64 {
+    unsafe {
+        let mut path_ptrs: Vec<*mut clipper2c_sys::ClipperPath64> = Vec::with_capacity(polys.len());
+        for poly in polys {
+            path_ptrs.push(path64_from_points(poly));
+        }
+        let mem = clipper_allocate(clipper_paths64_size());
+        clipper_paths64_of_paths(mem, path_ptrs.as_mut_ptr(), path_ptrs.len())
     }
-    clipper_delete_path64(path);
-    out
-}}
+}
+
+unsafe fn extract_int_path(node: *mut clipper2c_sys::ClipperPolyTree64) -> Vec<IntPoint> {
+    unsafe {
+        let mem = clipper_allocate(clipper_path64_size());
+        let path = clipper_polytree64_polygon(mem, node);
+        let len = clipper_path64_length(path);
+        let mut out = Vec::with_capacity(len);
+        for i in 0..len {
+            let pt = clipper_path64_get_point(path, i as i32);
+            out.push((pt.x, pt.y));
+        }
+        clipper_delete_path64(path);
+        out
+    }
+}
 
 fn point_less(p1: IntPoint, p2: IntPoint) -> bool {
     p1.0 < p2.0 || (p1.0 == p2.0 && p1.1 < p2.1)
@@ -160,131 +172,136 @@ unsafe fn visit_shell(
     node: *mut clipper2c_sys::ClipperPolyTree64,
     _inv_scaling: f64,
     out: &mut Vec<Vec<IntPoint>>,
-) { unsafe {
-    if node.is_null() {
-        return;
-    }
-    if clipper_polytree64_is_hole(node) != 0 {
-        let n = clipper_polytree64_count(node);
-        for i in 0..n {
-            let child = clipper_polytree64_get_child(node, i) as *mut clipper2c_sys::ClipperPolyTree64;
-            visit_shell(child, 1.0, out);
+) {
+    unsafe {
+        if node.is_null() {
+            return;
         }
-        return;
-    }
-
-    let mut contour = extract_int_path(node);
-    let child_count = clipper_polytree64_count(node);
-    if child_count > 0 {
-        let mut holes: Vec<SortingHole> = Vec::new();
-        for i in 0..child_count {
-            let child = clipper_polytree64_get_child(node, i) as *mut clipper2c_sys::ClipperPolyTree64;
-            if clipper_polytree64_is_hole(child) == 0 {
-                continue;
+        if clipper_polytree64_is_hole(node) != 0 {
+            let n = clipper_polytree64_count(node);
+            for i in 0..n {
+                let child =
+                    clipper_polytree64_get_child(node, i) as *mut clipper2c_sys::ClipperPolyTree64;
+                visit_shell(child, 1.0, out);
             }
-            let path = extract_int_path(child);
-            let mut min_idx = 0usize;
-            for (i, p) in path.iter().enumerate().skip(1) {
-                if point_less(*p, path[min_idx]) {
-                    min_idx = i;
+            return;
+        }
+
+        let mut contour = extract_int_path(node);
+        let child_count = clipper_polytree64_count(node);
+        if child_count > 0 {
+            let mut holes: Vec<SortingHole> = Vec::new();
+            for i in 0..child_count {
+                let child =
+                    clipper_polytree64_get_child(node, i) as *mut clipper2c_sys::ClipperPolyTree64;
+                if clipper_polytree64_is_hole(child) == 0 {
+                    continue;
+                }
+                let path = extract_int_path(child);
+                let mut min_idx = 0usize;
+                for (i, p) in path.iter().enumerate().skip(1) {
+                    if point_less(*p, path[min_idx]) {
+                        min_idx = i;
+                    }
+                }
+                holes.push(SortingHole { path, min_idx });
+            }
+            if !holes.is_empty() {
+                link_holes(&mut contour, &mut holes);
+            }
+        }
+        if contour.len() >= 3 {
+            out.push(contour);
+        }
+
+        for i in 0..child_count {
+            let child =
+                clipper_polytree64_get_child(node, i) as *mut clipper2c_sys::ClipperPolyTree64;
+            if clipper_polytree64_is_hole(child) != 0 {
+                let n = clipper_polytree64_count(child);
+                for j in 0..n {
+                    let grand = clipper_polytree64_get_child(child, j)
+                        as *mut clipper2c_sys::ClipperPolyTree64;
+                    visit_shell(grand, 1.0, out);
                 }
             }
-            holes.push(SortingHole { path, min_idx });
-        }
-        if !holes.is_empty() {
-            link_holes(&mut contour, &mut holes);
         }
     }
-    if contour.len() >= 3 {
-        out.push(contour);
-    }
-
-    for i in 0..child_count {
-        let child = clipper_polytree64_get_child(node, i) as *mut clipper2c_sys::ClipperPolyTree64;
-        if clipper_polytree64_is_hole(child) != 0 {
-            let n = clipper_polytree64_count(child);
-            for j in 0..n {
-                let grand = clipper_polytree64_get_child(child, j)
-                    as *mut clipper2c_sys::ClipperPolyTree64;
-                visit_shell(grand, 1.0, out);
-            }
-        }
-    }
-}}
+}
 
 unsafe fn tree_to_polygons(
     root: *mut clipper2c_sys::ClipperPolyTree64,
     _inv_scaling: f64,
-) -> Vec<Vec<IntPoint>> { unsafe {
-    let mut out = Vec::new();
-    let n = clipper_polytree64_count(root);
-    if n == 0 {
-        visit_shell(root, 1.0, &mut out);
-    } else {
-        for i in 0..n {
-            let child =
-                clipper_polytree64_get_child(root, i) as *mut clipper2c_sys::ClipperPolyTree64;
-            visit_shell(child, 1.0, &mut out);
+) -> Vec<Vec<IntPoint>> {
+    unsafe {
+        let mut out = Vec::new();
+        let n = clipper_polytree64_count(root);
+        if n == 0 {
+            visit_shell(root, 1.0, &mut out);
+        } else {
+            for i in 0..n {
+                let child =
+                    clipper_polytree64_get_child(root, i) as *mut clipper2c_sys::ClipperPolyTree64;
+                visit_shell(child, 1.0, &mut out);
+            }
         }
+        out
     }
-    out
-}}
+}
 
 unsafe fn execute_boolean_tree(
     subjects: &[Vec<IntPoint>],
     clips: &[Vec<IntPoint>],
     clip_type: ClipperClipType,
-) -> Result<Vec<Vec<IntPoint>>, ()> { unsafe {
-    if subjects.is_empty() {
-        return Ok(Vec::new());
+) -> Result<Vec<Vec<IntPoint>>, ()> {
+    unsafe {
+        if subjects.is_empty() {
+            return Ok(Vec::new());
+        }
+
+        let subj_ptr = paths64_from_polygons(subjects);
+        let clip_ptr = if clips.is_empty() {
+            ptr::null_mut()
+        } else {
+            paths64_from_polygons(clips)
+        };
+
+        let clipper_mem = clipper_allocate(clipper_clipper64_size());
+        let clipper = clipper_clipper64(clipper_mem);
+        clipper_clipper64_add_subject(clipper, subj_ptr);
+        if !clip_ptr.is_null() {
+            clipper_clipper64_add_clip(clipper, clip_ptr);
+        }
+
+        let tree_mem = clipper_allocate(clipper_polytree64_size());
+        let tree = clipper_polytree64(tree_mem, ptr::null_mut());
+        let open_mem = clipper_allocate(clipper_paths64_size());
+        let open = clipper_paths64(open_mem);
+
+        let ok = clipper_clipper64_execute_tree_with_open(
+            clipper,
+            clip_type,
+            ClipperFillRule_NON_ZERO,
+            tree,
+            open,
+        );
+
+        let mut result = Vec::new();
+        if ok == 1 {
+            result = tree_to_polygons(tree, 1.0);
+        }
+
+        clipper_delete_paths64(open);
+        clipper_delete_polytree64(tree);
+        clipper_delete_clipper64(clipper);
+        clipper_delete_paths64(subj_ptr);
+        if !clip_ptr.is_null() {
+            clipper_delete_paths64(clip_ptr);
+        }
+
+        if ok == 1 { Ok(result) } else { Err(()) }
     }
-
-    let subj_ptr = paths64_from_polygons(subjects);
-    let clip_ptr = if clips.is_empty() {
-        ptr::null_mut()
-    } else {
-        paths64_from_polygons(clips)
-    };
-
-    let clipper_mem = clipper_allocate(clipper_clipper64_size());
-    let clipper = clipper_clipper64(clipper_mem);
-    clipper_clipper64_add_subject(clipper, subj_ptr);
-    if !clip_ptr.is_null() {
-        clipper_clipper64_add_clip(clipper, clip_ptr);
-    }
-
-    let tree_mem = clipper_allocate(clipper_polytree64_size());
-    let tree = clipper_polytree64(tree_mem, ptr::null_mut());
-    let open_mem = clipper_allocate(clipper_paths64_size());
-    let open = clipper_paths64(open_mem);
-
-    let ok = clipper_clipper64_execute_tree_with_open(
-        clipper,
-        clip_type,
-        ClipperFillRule_NON_ZERO,
-        tree,
-        open,
-    );
-
-    let mut result = Vec::new();
-    if ok == 1 {
-        result = tree_to_polygons(tree, 1.0);
-    }
-
-    clipper_delete_paths64(open);
-    clipper_delete_polytree64(tree);
-    clipper_delete_clipper64(clipper);
-    clipper_delete_paths64(subj_ptr);
-    if !clip_ptr.is_null() {
-        clipper_delete_paths64(clip_ptr);
-    }
-
-    if ok == 1 {
-        Ok(result)
-    } else {
-        Err(())
-    }
-}}
+}
 
 fn union_operand_int(polys: &[Vec<(f64, f64)>], scaling: f64) -> Vec<Vec<IntPoint>> {
     if polys.is_empty() {
@@ -297,10 +314,7 @@ fn union_operand_int(polys: &[Vec<(f64, f64)>], scaling: f64) -> Vec<Vec<IntPoin
         .iter()
         .map(|p| polygon_to_int_path(p, scaling))
         .collect();
-    unsafe {
-        let merged = execute_boolean_tree(&paths, &[], ClipperClipType_UNION).unwrap_or(paths);
-        merged
-    }
+    unsafe { execute_boolean_tree(&paths, &[], ClipperClipType_UNION).unwrap_or(paths) }
 }
 
 pub fn boolean_polytree(
