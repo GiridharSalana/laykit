@@ -29,9 +29,9 @@ cargo test --doc
 | Unit tests (all modules) | 115 |
 | Integration tests | 41 |
 | Doc tests | 8 |
-| **Total** | **164** |
+| **Total** | **178** |
 
-All 164 pass. Zero failures. Zero external dependencies.
+All 178 pass (including doc tests). Zero failures. One dependency (`miniz_oxide` for OASIS CBLOCK).
 
 ## Coverage by Module
 

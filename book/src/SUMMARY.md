@@ -7,6 +7,7 @@
 - [Getting Started](./getting-started.md)
   - [Installation](./installation.md)
   - [Quick Start](./quick-start.md)
+- [Unified I/O](./unified-io.md)
 - [GDSII Format](./gdsii.md)
   - [Reading GDSII Files](./gdsii-reading.md)
   - [Writing GDSII Files](./gdsii-writing.md)

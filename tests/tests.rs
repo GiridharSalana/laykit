@@ -58,6 +58,151 @@ mod converter_tests {
 }
 
 // ============================================================================
+// Unified load Tests
+// ============================================================================
+
+#[cfg(test)]
+mod load_tests {
+    use super::*;
+    use laykit::format_detection::FileFormat;
+
+    #[test]
+    fn test_load_gdsii_file() {
+        let mut gds = GDSIIFile::new("LOAD_LIB".to_string());
+        gds.structures.push(GDSStructure {
+            name: "CELL".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+            strclass: None,
+            elements: Vec::new(),
+        });
+
+        let path = "tests/test_load_unified.gds";
+        gds.write_to_file(path).unwrap();
+
+        let layout = load(path).unwrap();
+        assert_eq!(layout.format(), FileFormat::GDSII);
+        assert_eq!(layout.cell_count(), 1);
+        assert!(layout.as_gdsii().unwrap().library_name == "LOAD_LIB");
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_load_oasis_file() {
+        let mut oasis = OASISFile::new();
+        oasis.cells.push(OASISCell {
+            name: "TOP".to_string(),
+            elements: vec![OASISElement::Rectangle(Rectangle {
+                layer: 1,
+                datatype: 0,
+                x: 0,
+                y: 0,
+                width: 50,
+                height: 50,
+                repetition: None,
+                properties: Vec::new(),
+            })],
+        });
+
+        let path = "tests/test_load_unified.oas";
+        oasis.write_to_file(path).unwrap();
+
+        let layout = LayoutFile::load_from_file(path).unwrap();
+        assert_eq!(layout.format(), FileFormat::OASIS);
+        assert_eq!(layout.cell_count(), 1);
+
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_load_unknown_file() {
+        let path = "tests/test_load_unknown.dat";
+        std::fs::write(path, b"not a layout file").unwrap();
+        let err = load(path).unwrap_err();
+        assert_eq!(err, LoadError::UnknownFormat);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_load_gdsii_wrong_extension() {
+        let gds = GDSIIFile::new("EXT".to_string());
+        let path = "tests/test_load_no_ext";
+        gds.write_to_file(path).unwrap();
+        let layout = load(path).unwrap();
+        assert_eq!(layout.format(), FileFormat::GDSII);
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_load_library_unified() {
+        let mut gds = GDSIIFile::new("LIB_TEST".to_string());
+        gds.structures.push(GDSStructure {
+            name: "A".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+            strclass: None,
+            elements: Vec::new(),
+        });
+        let path = "tests/test_load_library.gds";
+        gds.write_to_file(path).unwrap();
+        let lib = load_library(path).unwrap();
+        assert_eq!(lib.cell_count(), 1);
+        assert_eq!(lib.name(), "LIB_TEST");
+        std::fs::remove_file(path).ok();
+    }
+
+    #[test]
+    fn test_converter_property_preservation() {
+        use laykit::GDSProperty;
+        use laykit::converter::{gds_properties_to_oasis, oasis_properties_to_gds};
+        let props = vec![GDSProperty {
+            attribute: 42,
+            value: "test_value".to_string(),
+        }];
+        let oasis_props = gds_properties_to_oasis(&props);
+        assert_eq!(oasis_props.len(), 1);
+        let back = oasis_properties_to_gds(&oasis_props);
+        assert_eq!(back.len(), 1);
+        assert_eq!(back[0].attribute, 42);
+        assert_eq!(back[0].value, "test_value");
+    }
+
+    #[test]
+    fn test_load_round_trip_via_layout() {
+        let mut gds = GDSIIFile::new("RT_LOAD".to_string());
+        gds.structures.push(GDSStructure {
+            name: "X".to_string(),
+            creation_time: GDSTime::now(),
+            modification_time: GDSTime::now(),
+            strclass: None,
+            elements: Vec::new(),
+        });
+
+        let path = "tests/test_load_roundtrip.gds";
+        gds.write_to_file(path).unwrap();
+        let layout = load(path).unwrap();
+        let out = "tests/test_load_roundtrip_out.gds";
+        layout.write_to_file(out).unwrap();
+        let again = load(out).unwrap();
+        assert_eq!(again.cell_count(), 1);
+        std::fs::remove_file(path).ok();
+        std::fs::remove_file(out).ok();
+    }
+
+    #[test]
+    fn test_load_from_reader() {
+        let gds = GDSIIFile::new("READER".to_string());
+        let path = "tests/test_load_reader.gds";
+        gds.write_to_file(path).unwrap();
+        let data = std::fs::read(path).unwrap();
+        let layout = LayoutFile::load_from_reader(&mut Cursor::new(data)).unwrap();
+        assert_eq!(layout.format(), FileFormat::GDSII);
+        std::fs::remove_file(path).ok();
+    }
+}
+
+// ============================================================================
 // GDSII Tests
 // ============================================================================
 

@@ -1,11 +1,55 @@
 // Conversion utilities between OASIS and GDSII formats
 
 use crate::gdsii::{
-    Boundary, GDSElement, GDSIIFile, GDSStructure, GDSTime, GPath, GText, StructRef,
+    Boundary, GDSElement, GDSIIFile, GDSProperty, GDSStructure, GDSTime, GPath, GText, StructRef,
 };
 use crate::oasis::{
-    OASISCell, OASISElement, OASISFile, OPath, OText, Placement, Polygon, Rectangle,
+    OASISCell, OASISElement, OASISFile, OPath, OText, Placement, Polygon, Property, PropertyValue,
+    Rectangle,
 };
+
+/// Map GDSII element properties to OASIS properties.
+pub fn gds_properties_to_oasis(props: &[GDSProperty]) -> Vec<Property> {
+    props
+        .iter()
+        .map(|p| Property {
+            name: format!("GDS_ATTR_{}", p.attribute),
+            values: vec![PropertyValue::String(p.value.clone())],
+        })
+        .collect()
+}
+
+/// Map OASIS properties back to GDSII PROPATTR/PROPVALUE pairs.
+pub fn oasis_properties_to_gds(props: &[Property]) -> Vec<GDSProperty> {
+    props
+        .iter()
+        .enumerate()
+        .map(|(idx, p)| {
+            let attribute = parse_gds_attribute_name(&p.name).unwrap_or(1000 + idx as i16);
+            GDSProperty {
+                attribute,
+                value: property_value_as_string(p),
+            }
+        })
+        .collect()
+}
+
+fn parse_gds_attribute_name(name: &str) -> Option<i16> {
+    name.strip_prefix("GDS_ATTR_").and_then(|s| s.parse().ok())
+}
+
+fn property_value_as_string(prop: &Property) -> String {
+    prop.values
+        .first()
+        .map(|v| match v {
+            PropertyValue::String(s) => s.clone(),
+            PropertyValue::Integer(n) => n.to_string(),
+            PropertyValue::Real(r) => r.to_string(),
+            PropertyValue::Boolean(b) => b.to_string(),
+            PropertyValue::Reference(r) => r.to_string(),
+        })
+        .unwrap_or_default()
+}
 
 /// Convert GDSII to OASIS
 pub fn gdsii_to_oasis(gds: &GDSIIFile) -> Result<OASISFile, Box<dyn std::error::Error>> {
@@ -117,7 +161,7 @@ fn convert_gds_element_to_oasis(element: &GDSElement) -> Option<OASISElement> {
                     width: width as u64,
                     height: height as u64,
                     repetition: None,
-                    properties: Vec::new(),
+                    properties: gds_properties_to_oasis(&boundary.properties),
                 }))
             } else {
                 // Convert to polygon
@@ -143,7 +187,7 @@ fn convert_gds_element_to_oasis(element: &GDSElement) -> Option<OASISElement> {
                     y,
                     points: relative_points,
                     repetition: None,
-                    properties: Vec::new(),
+                    properties: gds_properties_to_oasis(&boundary.properties),
                 }))
             }
         }
@@ -172,7 +216,7 @@ fn convert_gds_element_to_oasis(element: &GDSElement) -> Option<OASISElement> {
                 extension_scheme: crate::oasis::ExtensionScheme::Flush,
                 points: relative_points,
                 repetition: None,
-                properties: Vec::new(),
+                properties: gds_properties_to_oasis(&path.properties),
             }))
         }
         GDSElement::Text(text) => Some(OASISElement::Text(OText {
@@ -182,7 +226,7 @@ fn convert_gds_element_to_oasis(element: &GDSElement) -> Option<OASISElement> {
             y: text.xy.1 as i64,
             string: text.string.clone(),
             repetition: None,
-            properties: Vec::new(),
+            properties: gds_properties_to_oasis(&text.properties),
         })),
         GDSElement::StructRef(sref) => Some(OASISElement::Placement(Placement {
             cell_name: sref.sname.clone(),
@@ -196,7 +240,7 @@ fn convert_gds_element_to_oasis(element: &GDSElement) -> Option<OASISElement> {
                 .map(|st| st.reflection)
                 .unwrap_or(false),
             repetition: None,
-            properties: Vec::new(),
+            properties: gds_properties_to_oasis(&sref.properties),
         })),
         GDSElement::ArrayRef(_aref) => {
             // Array references would need special handling
@@ -228,7 +272,7 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 xy: vec![(x, y), (x + w, y), (x + w, y + h), (x, y + h), (x, y)],
                 elflags: None,
                 plex: None,
-                properties: Vec::new(),
+                properties: oasis_properties_to_gds(&rect.properties),
             }))
         }
         OASISElement::Polygon(poly) => {
@@ -244,7 +288,7 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 xy,
                 elflags: None,
                 plex: None,
-                properties: Vec::new(),
+                properties: oasis_properties_to_gds(&poly.properties),
             }))
         }
         OASISElement::Path(path) => {
@@ -264,7 +308,7 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 xy,
                 elflags: None,
                 plex: None,
-                properties: Vec::new(),
+                properties: oasis_properties_to_gds(&path.properties),
             }))
         }
         OASISElement::Text(text) => Some(GDSElement::Text(GText {
@@ -277,7 +321,7 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
             width: None,
             elflags: None,
             plex: None,
-            properties: Vec::new(),
+            properties: oasis_properties_to_gds(&text.properties),
         })),
         OASISElement::Placement(placement) => {
             let strans = if placement.magnification.is_some()
@@ -301,7 +345,7 @@ fn convert_oasis_element_to_gds(element: &OASISElement) -> Option<GDSElement> {
                 strans,
                 elflags: None,
                 plex: None,
-                properties: Vec::new(),
+                properties: oasis_properties_to_gds(&placement.properties),
             }))
         }
         OASISElement::Trapezoid(_) | OASISElement::CTrapezoid(_) | OASISElement::Circle(_) => {

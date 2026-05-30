@@ -12,9 +12,9 @@
 //! - **CLI Tool** - Command-line utility for file operations
 //! - **Property Utilities** - Enhanced property management and builders
 //! - **AREF Expansion** - Array reference expansion utilities
-//! - **Zero Dependencies** - Pure Rust implementation using only `std`
+//! - **Minimal Dependencies** - `miniz_oxide` for OASIS CBLOCK decompression; otherwise pure Rust
 //! - **Memory Safe** - Leverages Rust's ownership system
-//! - **Production Ready** - Comprehensive test suite with 164 tests
+//! - **Unified I/O** - [`load`], [`load_library`], and [`Library::save`] for GDSII and OASIS
 //!
 //! ## Quick Start
 //!
@@ -93,15 +93,31 @@
 //! - [`properties`] - Property management utilities
 //! - [`aref_expansion`] - Array reference expansion
 //! - [`format_detection`] - File format detection by magic bytes
+//! - [`layout`] - Unified [`load`] for GDSII and OASIS files
+//!
+//! ### Loading either format
+//!
+//! ```no_run
+//! use laykit::load_library;
+//!
+//! let lib = load_library("layout.gds")?; // or .oas — format is auto-detected
+//! println!("{} cells from {:?}", lib.cell_count(), lib.original_format());
+//! # Ok::<(), laykit::LaykitError>(())
+//! ```
+//!
+//! Use [`load`] when you need the native on-disk representation without normalization.
 
 pub mod aref_expansion;
 pub mod boolean_ops;
 pub mod converter;
 pub mod curve;
+pub mod error;
 pub mod flexpath;
 pub mod format_detection;
 pub mod gdsii;
 pub mod geometry;
+pub mod layout;
+pub mod library;
 pub mod oasis;
 pub mod properties;
 pub mod streaming;
@@ -110,6 +126,7 @@ pub mod topology;
 pub use aref_expansion::*;
 pub use boolean_ops::{Axis, BooleanOp, boolean, convex_hull, offset, slice};
 pub use curve::{Curve, ellipse, regular_polygon, rounded_rectangle, spiral, star};
+pub use error::LaykitError;
 pub use flexpath::{EndCap, FlexPath, Join, RobustPath};
 pub use gdsii::*;
 pub use geometry::{
@@ -120,6 +137,10 @@ pub use geometry::{
     polygon_centroid, polygon_perimeter, polygon_signed_area, remove_duplicates, rotate, scale,
     structure_bounding_box, translate,
 };
+pub use layout::{
+    LayoutFile, LoadError, LoadOptions, SaveOptions, load, load_with_options, save_layout,
+};
+pub use library::{Library, load_library};
 pub use oasis::*;
 pub use properties::*;
 pub use streaming::*;

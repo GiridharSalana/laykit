@@ -663,6 +663,52 @@ impl GDSIIFile {
         Ok(gds)
     }
 
+    /// Parse GDSII element records from a structure body (records between STRNAME and ENDSTR).
+    pub fn parse_element_records(
+        body: &[u8],
+    ) -> Result<Vec<GDSElement>, Box<dyn std::error::Error>> {
+        let mut full = Self::streaming_wrap_prefix();
+        full.extend_from_slice(body);
+        full.extend_from_slice(&[0x00, 0x04, 0x07, 0x02]); // ENDSTR
+        full.extend_from_slice(&[0x00, 0x04, 0x04, 0x02]); // ENDLIB
+        let gds = Self::read_from_reader(&mut std::io::Cursor::new(full))?;
+        Ok(gds
+            .structures
+            .into_iter()
+            .next()
+            .map(|s| s.elements)
+            .unwrap_or_default())
+    }
+
+    fn streaming_wrap_prefix() -> Vec<u8> {
+        use std::sync::OnceLock;
+        static PREFIX: OnceLock<Vec<u8>> = OnceLock::new();
+        PREFIX
+            .get_or_init(|| {
+                let mut gds = GDSIIFile::new("STREAM".to_string());
+                gds.units = (1e-6, 1e-9);
+                gds.structures.push(GDSStructure {
+                    name: "CELL".to_string(),
+                    creation_time: GDSTime::now(),
+                    modification_time: GDSTime::now(),
+                    strclass: None,
+                    elements: Vec::new(),
+                });
+                let mut buf = Vec::new();
+                gds.write_to_writer(&mut buf).expect("streaming prefix");
+                let mut i = 0usize;
+                while i + 4 <= buf.len() {
+                    if buf[i + 2] == 0x07 {
+                        return buf[..i].to_vec();
+                    }
+                    let len = u16::from_be_bytes([buf[i], buf[i + 1]]) as usize;
+                    i += len.max(4);
+                }
+                buf
+            })
+            .clone()
+    }
+
     /// Write GDSII to file
     pub fn write_to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), Box<dyn std::error::Error>> {
         let file = File::create(path)?;

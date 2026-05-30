@@ -16,7 +16,7 @@
 ## Design
 
 - **Zero external dependencies** — pure Rust `std` only
-- **164 tests**, 0 failures
+- **178 tests**, 0 failures
 - Idiomatic Rust: `Result`-based error handling, enums for element types, no unsafe code in public API
 - Rust edition 2024
 

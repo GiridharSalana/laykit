@@ -7,10 +7,24 @@ Get up and running with LayKit in minutes!
 Here's the simplest possible LayKit program:
 
 ```rust
+use laykit::load_library;
+
+fn main() -> Result<(), laykit::LaykitError> {
+    // Read GDSII or OASIS (auto-detected)
+    let lib = load_library("layout.gds")?;
+    println!("Library: {}", lib.name());
+    println!("Cells: {}", lib.cell_count());
+    lib.save("output.oas")?;
+    Ok(())
+}
+```
+
+### Format-specific reading
+
+```rust
 use laykit::GDSIIFile;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Read a GDSII file
     let gds = GDSIIFile::read_from_file("layout.gds")?;
     
     // Print information

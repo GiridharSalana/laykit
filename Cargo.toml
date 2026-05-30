@@ -1,6 +1,6 @@
 [package]
 name = "laykit"
-version = "0.0.3"
+version = "0.0.4"
 edition = "2024"
 authors = ["Giridhar Salana <giridharsalana@gmail.com>"]
 description = "Production-ready Rust library for reading, writing, and manipulating GDSII and OASIS IC layout files"
@@ -13,6 +13,7 @@ keywords = ["gdsii", "oasis", "ic-layout", "vlsi", "eda"]
 categories = ["parser-implementations", "encoding"]
 
 [dependencies]
+miniz_oxide = "0.8"
 
 [dev-dependencies]
 
@@ -35,3 +36,7 @@ path = "examples/oasis_only.rs"
 [[example]]
 name = "basic_usage"
 path = "examples/basic_usage.rs"
+
+[[example]]
+name = "unified_load"
+path = "examples/unified_load.rs"

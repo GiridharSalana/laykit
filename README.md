@@ -4,8 +4,8 @@ A production-ready Rust library for reading, writing, and manipulating GDSII and
 
 [![crates.io](https://img.shields.io/crates/v/laykit.svg)](https://crates.io/crates/laykit)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![Tests](https://img.shields.io/badge/tests-164%20passing-brightgreen.svg)](#testing)
-[![Zero Dependencies](https://img.shields.io/badge/dependencies-0-blue.svg)](#)
+[![Tests](https://img.shields.io/badge/tests-178%20passing-brightgreen.svg)](#testing)
+[![Dependencies](https://img.shields.io/badge/deps-miniz__oxide-blue.svg)](#installation)
 [![Docs](https://img.shields.io/badge/docs-giridharsalana.github.io%2Flaykit-blue.svg)](https://giridharsalana.github.io/laykit)
 
 ---
@@ -26,9 +26,18 @@ laykit = "0"
 ## Quick Start
 
 ```rust
+use laykit::load_library;
+
+// Read GDSII or OASIS (format auto-detected); normalized Library API
+let lib = load_library("layout.gds")?; // or layout.oas
+println!("{} cells", lib.cell_count());
+lib.save("copy.oas")?;
+```
+
+```rust
 use laykit::GDSIIFile;
 
-// Read
+// Read GDSII explicitly
 let gds = GDSIIFile::read_from_file("layout.gds")?;
 println!("{} structures", gds.structures.len());
 
@@ -60,6 +69,7 @@ oasis.write_to_file("output.oas")?;
 | `streaming` | Streaming parser for large files |
 | `aref_expansion` | Array reference expansion |
 | `properties` | Property builders and managers |
+| `layout` | Unified [`load`](https://docs.rs/laykit/latest/laykit/fn.load.html) for GDSII and OASIS |
 | `format_detection` | File format detection by magic bytes |
 
 ## Documentation
@@ -73,7 +83,7 @@ oasis.write_to_file("output.oas")?;
 cargo test
 ```
 
-164 tests — 0 failures — 0 external dependencies.
+178 tests — 0 failures — minimal dependency (`miniz_oxide` for OASIS CBLOCK).
 
 ## License
 

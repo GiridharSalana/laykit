@@ -2,7 +2,7 @@
 // Command-line interface for GDSII and OASIS file operations
 
 use laykit::format_detection::{FileFormat, detect_format_from_file};
-use laykit::{GDSIIFile, OASISFile, converter};
+use laykit::{GDSIIFile, LayoutFile, OASISFile, converter, load};
 use std::env;
 use std::fs;
 use std::path::Path;
@@ -151,17 +151,25 @@ fn handle_convert(args: &[String]) {
 }
 
 fn convert_gds_to_oas(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let gds = GDSIIFile::read_from_file(input)?;
-    let oasis = converter::gdsii_to_oasis(&gds)?;
-    oasis.write_to_file(output)?;
-    Ok(())
+    match load(input)? {
+        LayoutFile::Gdsii(gds) => {
+            let oasis = converter::gdsii_to_oasis(&gds)?;
+            oasis.write_to_file(output)?;
+            Ok(())
+        }
+        LayoutFile::Oasis(_) => Err("internal error: expected GDSII input".into()),
+    }
 }
 
 fn convert_oas_to_gds(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let oasis = OASISFile::read_from_file(input)?;
-    let gds = converter::oasis_to_gdsii_with_name(&oasis, Some(output))?;
-    gds.write_to_file(output)?;
-    Ok(())
+    match load(input)? {
+        LayoutFile::Oasis(oasis) => {
+            let gds = converter::oasis_to_gdsii_with_name(&oasis, Some(output))?;
+            gds.write_to_file(output)?;
+            Ok(())
+        }
+        LayoutFile::Gdsii(_) => Err("internal error: expected OASIS input".into()),
+    }
 }
 
 fn copy_file(input: &str, output: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -183,33 +191,31 @@ fn handle_info(args: &[String]) {
         process::exit(1);
     }
 
-    // Detect file format by reading magic bytes
-    let format = match detect_format_from_file(file_path) {
-        Ok(format) => format,
-        Err(e) => {
-            eprintln!("Error: Cannot detect file format: {}", e);
-            process::exit(1);
-        }
-    };
-
-    let result = match format {
-        FileFormat::GDSII => show_gds_info(file_path),
-        FileFormat::OASIS => show_oas_info(file_path),
-        FileFormat::Unknown => {
+    let layout = match load(file_path) {
+        Ok(layout) => layout,
+        Err(laykit::LaykitError::UnknownFormat) => {
             eprintln!("Error: Unknown file format");
             eprintln!("       File does not appear to be valid GDSII or OASIS");
             process::exit(1);
         }
+        Err(e) => {
+            eprintln!("Error reading file: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let result = match layout {
+        LayoutFile::Gdsii(gds) => print_gds_info(file_path, &gds),
+        LayoutFile::Oasis(oasis) => print_oas_info(file_path, &oasis),
     };
 
     if let Err(e) = result {
-        eprintln!("Error reading file: {}", e);
+        eprintln!("Error displaying file info: {}", e);
         process::exit(1);
     }
 }
 
-fn show_gds_info(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let gds = GDSIIFile::read_from_file(file_path)?;
+fn print_gds_info(file_path: &str, gds: &GDSIIFile) -> Result<(), Box<dyn std::error::Error>> {
     let metadata = fs::metadata(file_path)?;
 
     println!("═══════════════════════════════════════════════════════");
@@ -280,8 +286,7 @@ fn show_gds_info(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn show_oas_info(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
-    let oasis = OASISFile::read_from_file(file_path)?;
+fn print_oas_info(file_path: &str, oasis: &OASISFile) -> Result<(), Box<dyn std::error::Error>> {
     let metadata = fs::metadata(file_path)?;
 
     println!("═══════════════════════════════════════════════════════");
@@ -360,23 +365,22 @@ fn handle_validate(args: &[String]) {
         process::exit(1);
     }
 
-    // Detect file format by reading magic bytes
-    let format = match detect_format_from_file(file_path) {
-        Ok(format) => format,
-        Err(e) => {
-            eprintln!("Error: Cannot detect file format: {}", e);
-            process::exit(1);
-        }
-    };
-
-    let result = match format {
-        FileFormat::GDSII => validate_gds(file_path),
-        FileFormat::OASIS => validate_oas(file_path),
-        FileFormat::Unknown => {
+    let layout = match load(file_path) {
+        Ok(layout) => layout,
+        Err(laykit::LaykitError::UnknownFormat) => {
             eprintln!("Error: Unknown file format");
             eprintln!("       File does not appear to be valid GDSII or OASIS");
             process::exit(1);
         }
+        Err(e) => {
+            eprintln!("Error reading file: {}", e);
+            process::exit(1);
+        }
+    };
+
+    let result = match layout {
+        LayoutFile::Gdsii(gds) => validate_gds_loaded(&gds),
+        LayoutFile::Oasis(oasis) => validate_oas_loaded(&oasis),
     };
 
     match result {
@@ -407,8 +411,7 @@ fn handle_validate(args: &[String]) {
     }
 }
 
-fn validate_gds(file_path: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let gds = GDSIIFile::read_from_file(file_path)?;
+fn validate_gds_loaded(gds: &GDSIIFile) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut issues = Vec::new();
 
     // Check library name
@@ -500,8 +503,7 @@ fn validate_gds(file_path: &str) -> Result<Vec<String>, Box<dyn std::error::Erro
     Ok(issues)
 }
 
-fn validate_oas(file_path: &str) -> Result<Vec<String>, Box<dyn std::error::Error>> {
-    let oasis = OASISFile::read_from_file(file_path)?;
+fn validate_oas_loaded(oasis: &OASISFile) -> Result<Vec<String>, Box<dyn std::error::Error>> {
     let mut issues = Vec::new();
 
     // Check version
@@ -561,13 +563,13 @@ fn validate_oas(file_path: &str) -> Result<Vec<String>, Box<dyn std::error::Erro
                         ));
                     }
                 }
-                laykit::OASISElement::Placement(pl) => {
-                    if !oasis.cells.iter().any(|c| c.name == pl.cell_name) {
-                        issues.push(format!(
-                            "Cell '{}' element {} (Placement): references undefined cell '{}'",
-                            cell.name, elem_idx, pl.cell_name
-                        ));
-                    }
+                laykit::OASISElement::Placement(pl)
+                    if !oasis.cells.iter().any(|c| c.name == pl.cell_name) =>
+                {
+                    issues.push(format!(
+                        "Cell '{}' element {} (Placement): references undefined cell '{}'",
+                        cell.name, elem_idx, pl.cell_name
+                    ));
                 }
                 _ => {}
             }

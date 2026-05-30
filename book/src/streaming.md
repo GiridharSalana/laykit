@@ -203,11 +203,10 @@ The streaming parser is slightly slower than loading the full file but uses dram
 
 Current streaming implementation:
 - ✅ Reads file headers
-- ✅ Processes structures sequentially
-- ✅ Minimal memory usage
-- ⚠️ Element parsing is simplified (structure-level only)
+- ✅ Processes structures sequentially with full element parsing
+- ✅ Minimal memory usage (one structure at a time in memory)
 - ⚠️ Cannot seek backward (forward-only)
-- ⚠️ GDSII only (OASIS streaming coming in v0.2.0)
+- ⚠️ GDSII only (OASIS streaming uses full-file read)
 
 ## When to Use Streaming
 
@@ -225,8 +224,6 @@ Current streaming implementation:
 
 ## Future Enhancements
 
-Planned for v0.2.0:
-- Full element parsing in streaming mode
 - OASIS streaming support
 - Parallel structure processing
 - Seeking/indexing support

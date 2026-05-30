@@ -224,27 +224,28 @@ impl<R: Read + Seek> StreamingGDSIIReader<R> {
     }
 
     fn read_elements(&mut self) -> Result<Vec<GDSElement>, Box<dyn std::error::Error>> {
-        let elements = Vec::new();
+        use crate::GDSIIFile;
 
+        let mut body = Vec::new();
         loop {
             let mut header = [0u8; 4];
             self.reader.read_exact(&mut header)?;
-            let len = u16::from_be_bytes([header[0], header[1]]);
+            let len = u16::from_be_bytes([header[0], header[1]]) as usize;
             let record_type = header[2];
 
-            // ENDSTR - end of structure
             if record_type == 0x07 {
                 break;
             }
 
-            // Skip element data for now (in a full implementation, we'd parse each element type)
-            // This is a simplified streaming parser that focuses on structure-level processing
+            body.extend_from_slice(&header);
             if len > 4 {
-                self.reader.seek(SeekFrom::Current((len - 4) as i64))?;
+                let mut data = vec![0u8; len - 4];
+                self.reader.read_exact(&mut data)?;
+                body.extend_from_slice(&data);
             }
         }
 
-        Ok(elements)
+        GDSIIFile::parse_element_records(&body)
     }
 }
 
@@ -342,8 +343,7 @@ mod tests {
         reader.process_structures(&mut stats).unwrap();
 
         assert_eq!(stats.structure_count, 10);
-        // Elements are not fully parsed in this simplified streaming implementation
-        // In a full implementation, we'd track element counts accurately
+        assert_eq!(stats.element_count, 50);
     }
 
     #[test]

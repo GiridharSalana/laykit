@@ -2,6 +2,7 @@
 // Full implementation of OASIS spec for IC layout interchange
 // More compact and modern than GDSII
 
+use miniz_oxide::inflate::decompress_to_vec_zlib;
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufReader, BufWriter, Cursor, Read, Write};
@@ -436,104 +437,176 @@ impl OASISFile {
             elements: Vec::new(),
         };
 
-        // Read elements until next CELL, END, or coordinate mode change
+        Self::read_cell_body(cursor, names, &mut cell)?;
+        Ok(cell)
+    }
+
+    fn read_cell_body(
+        cursor: &mut Cursor<Vec<u8>>,
+        names: &NameTable,
+        cell: &mut OASISCell,
+    ) -> Result<(), Box<dyn std::error::Error>> {
         loop {
-            // Peek at next byte to see what's coming
             let position = cursor.position();
             let record_id = match Self::read_u8(cursor) {
                 Ok(id) => id,
-                Err(_) => break, // EOF
+                Err(_) => break,
             };
 
-            // Check if this is a cell boundary or end marker
+            if record_id == 0 {
+                continue;
+            }
+
             match record_id {
                 2 | 13 => {
-                    // END or CELL - restore position and break
                     cursor.set_position(position);
                     break;
                 }
-                14 | 15 => {
-                    // XYAbsolute or XYRelative - just continue
-                    continue;
-                }
+                14 | 15 => continue,
                 16 => {
-                    // PLACEMENT
                     if let Ok(elem) = Self::read_placement(cursor, names) {
                         cell.elements.push(OASISElement::Placement(elem));
                     }
                 }
                 18 => {
-                    // TEXT
                     if let Ok(elem) = Self::read_text(cursor, names) {
                         cell.elements.push(OASISElement::Text(elem));
                     }
                 }
                 19 => {
-                    // RECTANGLE
                     if let Ok(elem) = Self::read_rectangle(cursor) {
                         cell.elements.push(OASISElement::Rectangle(elem));
                     }
                 }
                 20 => {
-                    // POLYGON
                     if let Ok(elem) = Self::read_polygon(cursor) {
                         cell.elements.push(OASISElement::Polygon(elem));
                     }
                 }
                 21 => {
-                    // PATH
                     if let Ok(elem) = Self::read_path(cursor) {
                         cell.elements.push(OASISElement::Path(elem));
                     }
                 }
                 22 => {
-                    // TRAPEZOID
                     if let Ok(elem) = Self::read_trapezoid(cursor) {
                         cell.elements.push(OASISElement::Trapezoid(elem));
                     }
                 }
                 23 => {
-                    // CTRAPEZOID
                     if let Ok(elem) = Self::read_ctrapezoid(cursor) {
                         cell.elements.push(OASISElement::CTrapezoid(elem));
                     }
                 }
                 24 => {
-                    // CIRCLE
                     if let Ok(elem) = Self::read_circle(cursor) {
                         cell.elements.push(OASISElement::Circle(elem));
                     }
                 }
                 28 | 29 => {
-                    // PROPERTY records - skip for now (basic coverage)
-                    let _ = Self::read_unsigned(cursor); // property name reference
-                    let values_count = Self::read_unsigned(cursor).unwrap_or(0);
-                    for _ in 0..values_count {
-                        let _ = Self::read_unsigned(cursor); // skip property values
+                    if let Ok(prop) = Self::read_property_record(cursor, names) {
+                        Self::attach_property(cell, prop);
                     }
                 }
                 30 | 31 | 34 => {
-                    // XNAME, XELEMENT, XGEOMETRY - vendor extensions, skip
                     let _ = Self::read_unsigned(cursor);
                     let _ = Self::read_string(cursor);
                 }
                 32 | 33 => {
-                    // CBLOCK - compression block
-                    let _comp_type = Self::read_unsigned(cursor)?;
-                    let _uncomp_byte_count = Self::read_unsigned(cursor)?;
-                    let comp_byte_count = Self::read_unsigned(cursor)?;
-                    // Skip compressed data for now
-                    let _ = Self::read_bytes(cursor, comp_byte_count as usize);
+                    if let Ok(chunk) = Self::read_cblock(cursor) {
+                        let mut sub = Cursor::new(chunk);
+                        Self::read_cell_body(&mut sub, names, cell)?;
+                    }
                 }
                 _ => {
-                    // Unknown record, try to skip it safely
                     cursor.set_position(position);
                     break;
                 }
             }
         }
+        Ok(())
+    }
 
-        Ok(cell)
+    fn read_cblock(cursor: &mut Cursor<Vec<u8>>) -> Result<Vec<u8>, Box<dyn std::error::Error>> {
+        let comp_type = Self::read_unsigned(cursor)?;
+        let uncomp_byte_count = Self::read_unsigned(cursor)?;
+        let comp_byte_count = Self::read_unsigned(cursor)?;
+        let compressed = Self::read_bytes(cursor, comp_byte_count as usize)?;
+        match comp_type {
+            0 => {
+                let out = decompress_to_vec_zlib(&compressed)
+                    .map_err(|e| format!("CBLOCK zlib decompress failed: {e}"))?;
+                if uncomp_byte_count > 0 && out.len() != uncomp_byte_count as usize {
+                    return Err(format!(
+                        "CBLOCK size mismatch: expected {uncomp_byte_count}, got {}",
+                        out.len()
+                    )
+                    .into());
+                }
+                Ok(out)
+            }
+            1 => Ok(compressed),
+            other => Err(format!("unsupported CBLOCK compression type {other}").into()),
+        }
+    }
+
+    fn read_property_record(
+        cursor: &mut Cursor<Vec<u8>>,
+        names: &NameTable,
+    ) -> Result<Property, Box<dyn std::error::Error>> {
+        let name_ref = Self::read_unsigned(cursor)?;
+        let name = if name_ref & 1 == 0 {
+            let ref_num = (name_ref >> 1) as u32;
+            names
+                .prop_names
+                .get(&ref_num)
+                .cloned()
+                .unwrap_or_else(|| format!("PROP_{ref_num}"))
+        } else {
+            Self::read_string(cursor)?
+        };
+        let values_count = Self::read_unsigned(cursor)? as usize;
+        let mut values = Vec::with_capacity(values_count);
+        for _ in 0..values_count {
+            let value_ref = Self::read_unsigned(cursor)?;
+            values.push(Self::decode_property_value(value_ref, cursor, names)?);
+        }
+        Ok(Property { name, values })
+    }
+
+    fn decode_property_value(
+        value_ref: u64,
+        cursor: &mut Cursor<Vec<u8>>,
+        _names: &NameTable,
+    ) -> Result<PropertyValue, Box<dyn std::error::Error>> {
+        match value_ref & 0x0F {
+            0 | 1 => {
+                if value_ref & 1 == 0 {
+                    Ok(PropertyValue::Integer((value_ref >> 1) as i64))
+                } else {
+                    Ok(PropertyValue::String(Self::read_string(cursor)?))
+                }
+            }
+            2 => Ok(PropertyValue::Real(f64::from_bits(value_ref >> 4))),
+            3 => Ok(PropertyValue::Reference((value_ref >> 1) as u32)),
+            4 => Ok(PropertyValue::Boolean(value_ref != 0)),
+            _ => Ok(PropertyValue::Integer(value_ref as i64)),
+        }
+    }
+
+    fn attach_property(cell: &mut OASISCell, prop: Property) {
+        if let Some(last) = cell.elements.last_mut() {
+            match last {
+                OASISElement::Rectangle(r) => r.properties.push(prop),
+                OASISElement::Polygon(p) => p.properties.push(prop),
+                OASISElement::Path(p) => p.properties.push(prop),
+                OASISElement::Trapezoid(t) => t.properties.push(prop),
+                OASISElement::CTrapezoid(t) => t.properties.push(prop),
+                OASISElement::Circle(c) => c.properties.push(prop),
+                OASISElement::Text(t) => t.properties.push(prop),
+                OASISElement::Placement(p) => p.properties.push(prop),
+            }
+        }
     }
 
     fn read_rectangle(

@@ -119,6 +119,21 @@ pub fn detect_format_from_bytes(bytes: &[u8]) -> FileFormat {
     FileFormat::Unknown
 }
 
+/// Infer format from a file extension (`.gds`, `.oas`, …).
+pub fn detect_format_from_extension<P: AsRef<Path>>(path: P) -> FileFormat {
+    match path
+        .as_ref()
+        .extension()
+        .and_then(|s| s.to_str())
+        .map(|s| s.to_ascii_lowercase())
+        .as_deref()
+    {
+        Some("gds") | Some("gds2") => FileFormat::GDSII,
+        Some("oas") | Some("oasis") => FileFormat::OASIS,
+        _ => FileFormat::Unknown,
+    }
+}
+
 /// Detect file format from a reader
 ///
 /// Reads up to 16 bytes from the reader and attempts to detect the format.
