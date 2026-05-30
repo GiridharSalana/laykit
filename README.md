@@ -7,14 +7,6 @@ A production-ready Rust library for reading, writing, and manipulating GDSII and
 [![API on docs.rs](https://docs.rs/laykit/badge.svg)](https://docs.rs/laykit/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-| Badge | What it links to | Updates when |
-|-------|------------------|--------------|
-| crates.io | Latest crate on crates.io | You publish a version tag (`v*.*.*`) |
-| mdBook | [User guide](https://giridharsalana.github.io/laykit/) (tutorials, formats, examples) | Same tag deploys docs to GitHub Pages |
-| docs.rs | [Rust API reference](https://docs.rs/laykit/) | Same crates.io publish |
-
-You only bump `version` in `Cargo.toml` at release time — do not edit version numbers in this README.
-
 ---
 
 ## Installation
